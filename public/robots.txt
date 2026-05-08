@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin-payments
+
+Sitemap: https://quickalapp.com/sitemap.xml
