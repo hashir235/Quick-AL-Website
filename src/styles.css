@@ -515,8 +515,23 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 
 .price-card {
   position: relative;
-  padding: 26px;
+  /* Extra top padding leaves room for the absolutely-positioned badges
+     so they never overlap the plan name. */
+  padding: 60px 26px 26px;
   border-radius: 14px;
+  text-align: center;
+}
+
+.price-card h3 {
+  margin: 0;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.price-card .price-row {
+  justify-content: center;
 }
 
 .price-card.highlighted {
