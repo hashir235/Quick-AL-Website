@@ -51,8 +51,8 @@ import ss18 from './assets/screenshots/ss-18.png';
 import ssRecent from './assets/screenshots/ss-recent.png';
 
 const supportEmail = 'quickal.dev@gmail.com';
-const supportPhone = '0347 6654447';
-const whatsappUrl = 'https://wa.me/923476654447';
+const supportPhone = '0329 7590468';
+const whatsappUrl = 'https://wa.me/923297590468';
 const apiPrivacyUrl = 'https://api.quickalapp.com/privacy-policy';
 const apiDeleteUrl = 'https://api.quickalapp.com/delete-account';
 const directApkUrl = '/downloads/quickal-direct.apk';
@@ -251,7 +251,6 @@ function HomePage() {
             <span>Local support</span>
           </div>
         </div>
-        <HeroPhone />
       </section>
 
       <section className="section feature-band" id="features">
@@ -595,20 +594,6 @@ function ReviewsSection() {
         </button>
       </form>
     </section>
-  );
-}
-
-function HeroPhone() {
-  return (
-    <div className="hero-phone-wrap" aria-label="Quick AL app preview">
-      <div className="hero-phone-frame">
-        <img
-          src={ss01}
-          alt="Quick AL app — Estimation and Fabrication Workspace"
-          className="hero-phone-img"
-        />
-      </div>
-    </div>
   );
 }
 
