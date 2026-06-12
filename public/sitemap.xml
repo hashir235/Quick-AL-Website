@@ -16,6 +16,11 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://quickalapp.com/refund-policy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://quickalapp.com/delete-account</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>

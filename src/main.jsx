@@ -55,6 +55,7 @@ const supportPhone = '0329 7590468';
 const whatsappUrl = 'https://wa.me/923297590468';
 const apiPrivacyUrl = 'https://api.quickalapp.com/privacy-policy';
 const apiDeleteUrl = 'https://api.quickalapp.com/delete-account';
+const apiRefundUrl = 'https://api.quickalapp.com/refund-policy';
 const directApkUrl = '/downloads/quickal-direct.apk';
 const apiBaseUrl = 'https://api.quickalapp.com';
 
@@ -158,7 +159,11 @@ function App() {
     return () => window.removeEventListener('hashchange', closeMenu);
   }, []);
 
-  const isLegalPage = path === '/privacy-policy' || path === '/delete-account' || path === '/support';
+  const isLegalPage =
+    path === '/privacy-policy' ||
+    path === '/delete-account' ||
+    path === '/support' ||
+    path === '/refund-policy';
   const isAdminPage = path === '/admin-payments';
 
   return (
@@ -167,6 +172,7 @@ function App() {
       <main>
         {path === '/privacy-policy' && <PrivacyPolicy />}
         {path === '/delete-account' && <DeleteAccount />}
+        {path === '/refund-policy' && <RefundPolicy />}
         {path === '/support' && <SupportPage />}
         {isAdminPage && <AdminPaymentsPage />}
         {!isLegalPage && !isAdminPage && <HomePage />}
@@ -302,6 +308,10 @@ function HomePage() {
             <p>
               Direct plan payments are handled through <strong>EasyPaisa</strong> or <strong>Allied Bank</strong>.
               Contact support on WhatsApp to get payment details and activate your subscription.
+            </p>
+            <p className="pricing-refund-note">
+              All payments are final and non-refundable. If the app does not work after payment
+              due to a problem on our side, see the <a href="/refund-policy">Refund Policy</a>.
             </p>
           </div>
           <a className="primary-button" href={whatsappUrl}>
@@ -805,6 +815,47 @@ function PrivacyPolicy() {
   );
 }
 
+function RefundPolicy() {
+  return (
+    <LegalLayout
+      eyebrow="Payments"
+      title="Refund Policy"
+      intro="Clear and simple rules for Quick AL subscription payments."
+    >
+      <h2>All payments are final</h2>
+      <p>
+        Quick AL subscription payments are final and non-refundable. When a subscription is
+        activated, the service is considered delivered for the paid period.
+      </p>
+      <h2>The one exception</h2>
+      <p>
+        If you have paid and the app does not work because of a technical problem on our side,
+        you can request a refund review. In this case the refund request will be considered.
+      </p>
+      <h2>How to request a refund review</h2>
+      <ol>
+        <li>Email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> from the email address registered to your Quick AL account.</li>
+        <li>Use the subject line: <strong>Refund Request</strong>.</li>
+        <li>Include your payment reference / transaction ID and a short description of the problem.</li>
+        <li>Send the request within 7 days of the payment.</li>
+      </ol>
+      <p>
+        We respond to refund requests within 3 working days. If a refund is approved, it is
+        returned to the original payment method.
+      </p>
+      <h2>Google Play purchases</h2>
+      <p>
+        Subscriptions bought through Google Play follow Google Play&apos;s own refund process,
+        handled by Google.
+      </p>
+      <h2>Official policy</h2>
+      <p>
+        The current official policy is available at <a href={apiRefundUrl}>{apiRefundUrl}</a>.
+      </p>
+    </LegalLayout>
+  );
+}
+
 function DeleteAccount() {
   return (
     <LegalLayout
@@ -862,6 +913,7 @@ function Footer() {
       <div className="footer-links">
         <a href="/support">Support</a>
         <a href="/privacy-policy">Privacy Policy</a>
+        <a href="/refund-policy">Refund Policy</a>
         <a href="/delete-account">Delete Account</a>
         <a href={whatsappUrl}>WhatsApp: {supportPhone}</a>
         <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
