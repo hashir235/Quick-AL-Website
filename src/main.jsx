@@ -38,25 +38,26 @@ import quickAlLogo from './assets/quick_al_icon.png';
 import heroDeskImg from './assets/desk.jpg';
 import heroMoboImg from './assets/mobo.jpg';
 
-import ss01 from './assets/screenshots/01-estimation-fabrication-workspace.png';
-import ss02 from './assets/screenshots/02-window-fabrication-library.png';
-import ss03 from './assets/screenshots/03-glass-sheet-optimization.png';
-import ss04 from './assets/screenshots/04-pdf-reports-sharing.png';
-import ss05 from './assets/screenshots/05-secure-login-subscription.png';
-import ss06 from './assets/screenshots/06-built-for-glass-shops.png';
-import ss07 from './assets/screenshots/ss-07.png';
-import ss08 from './assets/screenshots/ss-08.png';
-import ss09 from './assets/screenshots/ss-09.png';
-import ss10 from './assets/screenshots/ss-10.png';
-import ss11 from './assets/screenshots/ss-11.png';
-import ss12 from './assets/screenshots/ss-12.png';
-import ss13 from './assets/screenshots/ss-13.png';
-import ss14 from './assets/screenshots/ss-14.png';
-import ss15 from './assets/screenshots/ss-15.png';
-import ss16 from './assets/screenshots/ss-16.png';
-import ss17 from './assets/screenshots/ss-17.png';
-import ss18 from './assets/screenshots/ss-18.png';
-import ssRecent from './assets/screenshots/ss-recent.png';
+// Screenshot galleries, one folder per app area (mirrors "App ss" source
+// folders). import.meta.glob keeps this maintenance-free: drop new images in
+// a folder and they appear on the site after a rebuild.
+function sortedShots(globResult) {
+  return Object.entries(globResult)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, src]) => src);
+}
+const estimationShots = sortedShots(
+  import.meta.glob('./assets/screenshots/estimation/*.jpg', { eager: true, import: 'default' }),
+);
+const fabricationShots = sortedShots(
+  import.meta.glob('./assets/screenshots/fabrication/*.jpg', { eager: true, import: 'default' }),
+);
+const glassShots = sortedShots(
+  import.meta.glob('./assets/screenshots/glass/*.jpg', { eager: true, import: 'default' }),
+);
+const settingsShots = sortedShots(
+  import.meta.glob('./assets/screenshots/settings/*.jpg', { eager: true, import: 'default' }),
+);
 
 const supportEmail = 'quickal.dev@gmail.com';
 const supportPhone = '0329 7590468';
@@ -187,26 +188,39 @@ const plans = [
   },
 ];
 
-const allScreenshots = [
-  { src: ss05, label: 'Secure Login' },
-  { src: ss01, label: 'Estimation & Fabrication' },
-  { src: ss02, label: 'Window Library' },
-  { src: ss07, label: 'Center Fix Window' },
-  { src: ss08, label: 'Corner Window Setup' },
-  { src: ss11, label: 'Single Door' },
-  { src: ss09, label: 'Window Selection' },
-  { src: ss10, label: 'Window Types' },
-  { src: ss12, label: 'Estimation Flow' },
-  { src: ss13, label: 'Project Settings' },
-  { src: ss14, label: 'Fabrication View' },
-  { src: ss15, label: 'Section Settings' },
-  { src: ss16, label: 'Window Dimensions' },
-  { src: ss17, label: 'Input Screen' },
-  { src: ss18, label: 'Review List' },
-  { src: ssRecent, label: 'Recent Projects' },
-  { src: ss03, label: 'Glass Sheet Optimization' },
-  { src: ss04, label: 'PDF Reports & Sharing' },
-  { src: ss06, label: 'Built for Glass Shops' },
+const screenshotCategories = [
+  {
+    id: 'estimation',
+    title: 'Estimation',
+    blurb:
+      'Window selection, size input, optimization, rates, material table, and the final bill.',
+    icon: Calculator,
+    shots: estimationShots,
+  },
+  {
+    id: 'fabrication',
+    title: 'Fabrication',
+    blurb:
+      'Production-ready windows, cutting workflow, and fabrication reports for the workshop.',
+    icon: Wrench,
+    shots: fabricationShots,
+  },
+  {
+    id: 'glass',
+    title: 'Glass',
+    blurb:
+      'Glass cutting table and sheet optimization with waste tracking.',
+    icon: Layers3,
+    shots: glassShots,
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    blurb:
+      'Company info, estimation rules, fabrication margins, and payment preferences.',
+    icon: Settings,
+    shots: settingsShots,
+  },
 ];
 
 function App() {
@@ -749,7 +763,7 @@ function ReviewsSection() {
   );
 }
 
-function ScreenshotsSection() {
+function ScreenshotTrack({ category }) {
   const scrollRef = React.useRef(null);
 
   function scrollBy(dir) {
@@ -759,6 +773,32 @@ function ScreenshotsSection() {
   }
 
   return (
+    <div className="screenshots-scroll-wrap">
+      <button className="scroll-arrow scroll-arrow-left" onClick={() => scrollBy(-1)} aria-label="Scroll left">
+        ‹
+      </button>
+      <div className="screenshots-track" ref={scrollRef}>
+        {category.shots.map((src, i) => (
+          <div className="ss-item" key={src}>
+            <div className="ss-phone-frame">
+              <img
+                src={src}
+                alt={`${category.title} screen ${i + 1}`}
+                loading="lazy"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="scroll-arrow scroll-arrow-right" onClick={() => scrollBy(1)} aria-label="Scroll right">
+        ›
+      </button>
+    </div>
+  );
+}
+
+function ScreenshotsSection() {
+  return (
     <section className="screenshots-section" id="screenshots">
       <Reveal className="screenshots-heading">
         <p className="eyebrow">
@@ -766,26 +806,26 @@ function ScreenshotsSection() {
           App Screenshots
         </p>
         <h2>See Quick AL in action</h2>
-        <p>Swipe or scroll to see all screens of the app.</p>
+        <p>Every part of the app, area by area — swipe each row to explore.</p>
       </Reveal>
-      <div className="screenshots-scroll-wrap">
-        <button className="scroll-arrow scroll-arrow-left" onClick={() => scrollBy(-1)} aria-label="Scroll left">
-          ‹
-        </button>
-        <div className="screenshots-track" ref={scrollRef}>
-          {allScreenshots.map((ss, i) => (
-            <div className="ss-item" key={i}>
-              <div className="ss-phone-frame">
-                <img src={ss.src} alt={ss.label} loading="lazy" />
+      {screenshotCategories.map((category) => {
+        const Icon = category.icon;
+        return (
+          <div className="ss-category" key={category.id}>
+            <Reveal className="ss-category-head">
+              <div className="ss-category-title">
+                <span className="ss-category-icon">
+                  <Icon size={19} />
+                </span>
+                <h3>{category.title}</h3>
+                <span className="ss-count">{category.shots.length} screens</span>
               </div>
-              <span className="ss-label">{ss.label}</span>
-            </div>
-          ))}
-        </div>
-        <button className="scroll-arrow scroll-arrow-right" onClick={() => scrollBy(1)} aria-label="Scroll right">
-          ›
-        </button>
-      </div>
+              <p className="ss-category-blurb">{category.blurb}</p>
+            </Reveal>
+            <ScreenshotTrack category={category} />
+          </div>
+        );
+      })}
     </section>
   );
 }
