@@ -3,11 +3,16 @@ import { createRoot } from 'react-dom/client';
 import {
   ArrowRight,
   BadgeCheck,
+  Building2,
   Calculator,
   CheckCircle2,
+  Clock,
+  Code2,
+  CreditCard,
   Download,
   FileText,
   Gauge,
+  Globe,
   Layers3,
   LockKeyhole,
   Mail,
@@ -19,10 +24,13 @@ import {
   ReceiptText,
   Scissors,
   Send,
+  Server,
+  Settings,
   ShieldCheck,
   Smartphone,
   Star,
   Trash2,
+  Wrench,
   X,
 } from 'lucide-react';
 import './styles.css';
@@ -61,6 +69,7 @@ const apiBaseUrl = 'https://api.quickalapp.com';
 
 const navItems = [
   { label: 'Home', href: '/' },
+  { label: 'About', href: '/about' },
   { label: 'Features', href: '/#features' },
   { label: 'Screenshots', href: '/#screenshots' },
   { label: 'Pricing', href: '/#pricing' },
@@ -68,6 +77,57 @@ const navItems = [
   { label: 'Support', href: '/support' },
   { label: 'Privacy', href: '/privacy-policy' },
 ];
+
+/**
+ * Scroll-reveal wrapper: renders hidden, then animates in the first time it
+ * enters the viewport (IntersectionObserver). `variant` picks the motion
+ * (up / fade / scale / left / right) and `delay` staggers siblings.
+ * Respects prefers-reduced-motion via CSS.
+ */
+function Reveal({
+  as: Tag = 'div',
+  variant = 'up',
+  delay = 0,
+  className = '',
+  children,
+  ...rest
+}) {
+  const ref = React.useRef(null);
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Tag
+      ref={ref}
+      className={`reveal reveal-${variant}${visible ? ' is-visible' : ''}${className ? ` ${className}` : ''}`}
+      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+}
 
 const features = [
   {
@@ -165,17 +225,24 @@ function App() {
     path === '/support' ||
     path === '/refund-policy';
   const isAdminPage = path === '/admin-payments';
+  const isAboutPage = path === '/about';
 
   return (
     <div className="site-shell">
+      <div className="bg-orbs" aria-hidden="true">
+        <span className="orb orb-1" />
+        <span className="orb orb-2" />
+        <span className="orb orb-3" />
+      </div>
       <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <main>
         {path === '/privacy-policy' && <PrivacyPolicy />}
         {path === '/delete-account' && <DeleteAccount />}
         {path === '/refund-policy' && <RefundPolicy />}
         {path === '/support' && <SupportPage />}
+        {isAboutPage && <AboutPage />}
         {isAdminPage && <AdminPaymentsPage />}
-        {!isLegalPage && !isAdminPage && <HomePage />}
+        {!isLegalPage && !isAdminPage && !isAboutPage && <HomePage />}
       </main>
       <Footer />
     </div>
@@ -219,6 +286,63 @@ function Header({ menuOpen, setMenuOpen }) {
   );
 }
 
+const posterHighlights = [
+  { icon: Calculator, title: 'Estimate', text: 'Accurate calculations' },
+  { icon: Scissors, title: 'Cutting Size', text: 'Optimized cutting' },
+  { icon: PackageCheck, title: 'Material List', text: 'Detailed reports' },
+  { icon: ReceiptText, title: 'Invoice', text: 'Professional billing' },
+  { icon: Settings, title: 'Settings', text: 'Customizable' },
+];
+
+/**
+ * Brand band inspired by the Quick AL poster: as the user scrolls, the app
+ * icon, title, tagline, five feature circles, and the closing pill reveal
+ * one by one.
+ */
+function PosterShowcase() {
+  return (
+    <section className="poster-section" aria-label="Quick AL highlights">
+      <div className="poster-inner">
+        <Reveal variant="scale" className="poster-icon-wrap">
+          <img src={quickAlLogo} alt="Quick AL app icon" />
+        </Reveal>
+        <Reveal as="h2" delay={120} className="poster-title">
+          Quick <span>AL</span>
+        </Reveal>
+        <Reveal as="p" delay={220} className="poster-tagline">
+          <span>Smart</span>
+          <i aria-hidden="true">|</i>
+          <span>Accurate</span>
+          <i aria-hidden="true">|</i>
+          <span>Reliable</span>
+        </Reveal>
+        <Reveal as="p" delay={320} className="poster-subline">
+          Aluminium window estimation &amp; fabrication made easy
+        </Reveal>
+        <div className="poster-highlights">
+          {posterHighlights.map((item, index) => (
+            <Reveal
+              key={item.title}
+              variant="up"
+              delay={380 + index * 120}
+              className="poster-highlight"
+            >
+              <span className="poster-circle">
+                <item.icon size={26} strokeWidth={1.7} />
+              </span>
+              <strong>{item.title}</strong>
+              <small>{item.text}</small>
+            </Reveal>
+          ))}
+        </div>
+        <Reveal variant="scale" delay={980} className="poster-pill-wrap">
+          <span className="poster-pill">Fast &nbsp;•&nbsp; Easy &nbsp;•&nbsp; Professional</span>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 function HomePage() {
   return (
     <>
@@ -259,22 +383,29 @@ function HomePage() {
         </div>
       </section>
 
+      <PosterShowcase />
+
       <section className="section feature-band" id="features">
-        <div className="section-heading">
+        <Reveal className="section-heading">
           <p className="eyebrow">Features</p>
           <h2>Daily shop work, organized in one app</h2>
           <p>
             Quick AL focuses on the reports and calculations aluminium window fabricators,
             contractors, and glass shops need every day.
           </p>
-        </div>
+        </Reveal>
         <div className="feature-grid">
-          {features.map((feature) => (
-            <article className="feature-card glass-card" key={feature.title}>
+          {features.map((feature, index) => (
+            <Reveal
+              as="article"
+              className="feature-card glass-card"
+              key={feature.title}
+              delay={index * 90}
+            >
               <feature.icon size={24} />
               <h3>{feature.title}</h3>
               <p>{feature.text}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -282,14 +413,19 @@ function HomePage() {
       <ScreenshotsSection />
 
       <section className="section pricing-section" id="pricing">
-        <div className="section-heading">
+        <Reveal className="section-heading">
           <p className="eyebrow">Pricing</p>
           <h2>Subscription plans for working shops</h2>
           <p>Direct access prices — separate from the Google Play version.</p>
-        </div>
+        </Reveal>
         <div className="pricing-grid">
-          {plans.map((plan) => (
-            <article className={plan.highlighted ? 'price-card glass-card highlighted' : 'price-card glass-card'} key={plan.name}>
+          {plans.map((plan, index) => (
+            <Reveal
+              as="article"
+              className={plan.highlighted ? 'price-card glass-card highlighted' : 'price-card glass-card'}
+              key={plan.name}
+              delay={index * 120}
+            >
               {plan.highlighted && <span className="plan-tag">Popular</span>}
               {plan.discount && <span className="discount-badge">{plan.discount}</span>}
               <h3>{plan.name}</h3>
@@ -298,10 +434,10 @@ function HomePage() {
                 <p className="price">{plan.price}</p>
               </div>
               <p>{plan.note}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
-        <div className="payment-note glass-card">
+        <Reveal className="payment-note glass-card" delay={120}>
           <Phone size={20} />
           <div>
             <strong>How to pay</strong>
@@ -318,18 +454,18 @@ function HomePage() {
             <Phone size={16} />
             WhatsApp Support
           </a>
-        </div>
+        </Reveal>
       </section>
 
       <section className="section download-section" id="download">
-        <div className="section-heading">
+        <Reveal className="section-heading">
           <p className="eyebrow">Direct APK</p>
           <h2>Install Quick AL from the website</h2>
           <p>
             Download the direct Android APK, install it on your phone, then choose a subscription plan inside the app.
           </p>
-        </div>
-        <div className="download-panel glass-card">
+        </Reveal>
+        <Reveal variant="scale" className="download-panel glass-card" delay={140}>
           <div>
             <Smartphone size={28} />
             <strong>Quick AL Direct APK</strong>
@@ -339,44 +475,50 @@ function HomePage() {
             Download APK
             <Download size={18} />
           </a>
-        </div>
+        </Reveal>
       </section>
 
-      <section className="section split-section" id="about">
-        <div>
+      <section className="section split-section" id="mmh">
+        <Reveal variant="left">
           <p className="eyebrow">About MMH</p>
           <h2>Practical software for real business work</h2>
           <p>
-            MMH builds software products that help business owners and field workers complete
+            MMH Tech builds software products that help business owners and field workers complete
             technical work faster, with clearer records and professional outputs. Quick AL is MMH's
             aluminium and glass estimation product for Android.
           </p>
-        </div>
+          <a className="secondary-button" href="/about" style={{ marginTop: '14px' }}>
+            Learn more about MMH Tech
+            <ArrowRight size={16} />
+          </a>
+        </Reveal>
         <div className="info-panel">
-          <div className="glass-card">
+          <Reveal variant="right" className="glass-card" delay={120}>
             <Gauge size={24} />
             <strong>Fast reports</strong>
             <span>Estimates, cutting reports, material reports, and invoices stay ready to share.</span>
-          </div>
-          <div className="glass-card">
+          </Reveal>
+          <Reveal variant="right" className="glass-card" delay={260}>
             <FileText size={24} />
             <strong>Professional PDFs</strong>
             <span>Send cleaner documents to customers, teams, and project stakeholders.</span>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       <ReviewsSection />
 
       <section className="support-strip">
-        <div>
+        <Reveal variant="left">
           <h2>Need account, subscription, or testing help?</h2>
           <p>Support is available for Google Play testing, subscriptions, account access, privacy, and deletion requests.</p>
-        </div>
-        <a className="primary-button" href="/support">
-          Get Support
-          <ArrowRight size={18} />
-        </a>
+        </Reveal>
+        <Reveal variant="right" delay={150}>
+          <a className="primary-button" href="/support">
+            Get Support
+            <ArrowRight size={18} />
+          </a>
+        </Reveal>
       </section>
     </>
   );
@@ -500,7 +642,7 @@ function ReviewsSection() {
 
   return (
     <section className="section reviews-section" id="reviews">
-      <div className="section-heading">
+      <Reveal className="section-heading">
         <p className="eyebrow">
           <MessageSquare size={16} /> Reviews
         </p>
@@ -516,7 +658,7 @@ function ReviewsSection() {
             </>
           )}
         </p>
-      </div>
+      </Reveal>
 
       <div className="reviews-grid">
         {loading && <p className="reviews-empty">Loading reviews…</p>}
@@ -618,14 +760,14 @@ function ScreenshotsSection() {
 
   return (
     <section className="screenshots-section" id="screenshots">
-      <div className="screenshots-heading">
+      <Reveal className="screenshots-heading">
         <p className="eyebrow">
           <Smartphone size={16} />
           App Screenshots
         </p>
         <h2>See Quick AL in action</h2>
         <p>Swipe or scroll to see all screens of the app.</p>
-      </div>
+      </Reveal>
       <div className="screenshots-scroll-wrap">
         <button className="scroll-arrow scroll-arrow-left" onClick={() => scrollBy(-1)} aria-label="Scroll left">
           ‹
@@ -815,6 +957,172 @@ function PrivacyPolicy() {
   );
 }
 
+const mmhServices = [
+  {
+    icon: Smartphone,
+    title: 'Android App Development',
+    text: 'Custom business apps built with Flutter — from idea to a live app on the Google Play Store.',
+  },
+  {
+    icon: Globe,
+    title: 'Websites & Web Apps',
+    text: 'Fast, modern websites and web panels (React) for products, companies, and admin dashboards.',
+  },
+  {
+    icon: Server,
+    title: 'Backend & Cloud',
+    text: 'Secure APIs, databases, and cloud deployment (AWS) with real production experience.',
+  },
+  {
+    icon: FileText,
+    title: 'Business Automation & PDF Reports',
+    text: 'Estimation systems, invoices, cutting reports, and professional PDF documents generated automatically.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Payments & Subscriptions',
+    text: 'Google Play billing, local payment flows, and subscription systems with fraud controls.',
+  },
+  {
+    icon: Wrench,
+    title: 'Maintenance & Support',
+    text: 'Updates, monitoring, and ongoing improvements after launch — software that keeps working.',
+  },
+];
+
+const mmhTrustPoints = [
+  { icon: BadgeCheck, text: 'FBR-registered business (NTN 3420147176827)' },
+  { icon: Smartphone, text: 'Live product on the Google Play Store' },
+  { icon: Server, text: 'Production infrastructure on AWS with SSL' },
+  { icon: Clock, text: 'Support replies within 24 hours' },
+];
+
+function AboutPage() {
+  React.useEffect(() => {
+    const previousTitle = document.title;
+    document.title = 'About MMH Tech — Software House behind Quick AL';
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
+
+  return (
+    <div className="about-page">
+      <section className="section about-hero">
+        <Reveal className="section-heading about-heading">
+          <p className="eyebrow">
+            <Building2 size={16} />
+            About the Company
+          </p>
+          <h1>MMH Tech</h1>
+          <p>
+            MMH Tech is a registered Pakistani software house that designs, builds, and runs
+            practical business software — mobile apps, websites, and the backend systems behind
+            them. Our flagship product, <strong>Quick AL</strong>, serves aluminium and glass
+            fabrication shops across Pakistan.
+          </p>
+        </Reveal>
+        <div className="about-fact-row">
+          {mmhTrustPoints.map((point, index) => (
+            <Reveal key={point.text} className="about-fact glass-card" delay={index * 110}>
+              <point.icon size={20} />
+              <span>{point.text}</span>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="section about-founder-section">
+        <Reveal variant="left" className="founder-card glass-card">
+          <div className="founder-avatar" aria-hidden="true">MH</div>
+          <div>
+            <p className="eyebrow">Founder</p>
+            <h2>Muhammad Hashir</h2>
+            <p className="founder-role">Founder &amp; Full-Stack Engineer</p>
+            <p>
+              Muhammad Hashir builds complete products end to end — Android apps (Flutter),
+              backends (Node.js), databases, cloud deployment, and payment systems. He founded
+              MMH Tech to bring professional, affordable software to real working businesses,
+              starting with the aluminium and glass industry he knows first-hand.
+            </p>
+          </div>
+        </Reveal>
+        <Reveal variant="right" delay={150} className="about-mission glass-card">
+          <Code2 size={24} />
+          <h3>How we work</h3>
+          <p>
+            One team, full ownership: we design, develop, deploy, and maintain. Clear pricing,
+            honest timelines, and software that is tested in production — not just delivered
+            and forgotten.
+          </p>
+        </Reveal>
+      </section>
+
+      <section className="section about-services">
+        <Reveal className="section-heading">
+          <p className="eyebrow">Services</p>
+          <h2>What MMH Tech can build for you</h2>
+          <p>
+            If you need an app or system for your business, these are the services we provide —
+            the same stack that powers Quick AL in production.
+          </p>
+        </Reveal>
+        <div className="feature-grid">
+          {mmhServices.map((service, index) => (
+            <Reveal
+              as="article"
+              className="feature-card glass-card"
+              key={service.title}
+              delay={index * 90}
+            >
+              <service.icon size={24} />
+              <h3>{service.title}</h3>
+              <p>{service.text}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="section about-flagship">
+        <Reveal variant="scale" className="download-panel glass-card">
+          <div>
+            <img className="about-flagship-icon" src={quickAlLogo} alt="Quick AL icon" />
+            <strong>Flagship product: Quick AL</strong>
+            <span>
+              Aluminium window estimation, cutting reports, glass optimization, and invoices —
+              live on Google Play and this website.
+            </span>
+          </div>
+          <a className="primary-button" href="/#screenshots">
+            See Quick AL
+            <ArrowRight size={18} />
+          </a>
+        </Reveal>
+      </section>
+
+      <section className="support-strip about-cta">
+        <Reveal variant="left">
+          <h2>Have a project in mind?</h2>
+          <p>
+            Tell us what your business needs — an app, a website, or a complete system. We reply
+            within 24 hours.
+          </p>
+        </Reveal>
+        <Reveal variant="right" delay={150} className="about-cta-actions">
+          <a className="primary-button" href={whatsappUrl}>
+            <Phone size={16} />
+            WhatsApp Us
+          </a>
+          <a className="secondary-button" href={`mailto:${supportEmail}`}>
+            <Mail size={16} />
+            {supportEmail}
+          </a>
+        </Reveal>
+      </section>
+    </div>
+  );
+}
+
 function RefundPolicy() {
   return (
     <LegalLayout
@@ -911,6 +1219,7 @@ function Footer() {
         <p>Professional aluminium and glass estimation software for Android.</p>
       </div>
       <div className="footer-links">
+        <a href="/about">About MMH Tech</a>
         <a href="/support">Support</a>
         <a href="/privacy-policy">Privacy Policy</a>
         <a href="/refund-policy">Refund Policy</a>
