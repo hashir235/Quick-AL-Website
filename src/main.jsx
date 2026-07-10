@@ -65,8 +65,10 @@ const whatsappUrl = 'https://wa.me/923297590468';
 const apiPrivacyUrl = 'https://api.quickalapp.com/privacy-policy';
 const apiDeleteUrl = 'https://api.quickalapp.com/delete-account';
 const apiRefundUrl = 'https://api.quickalapp.com/refund-policy';
-const directApkUrl = '/downloads/quickal-direct.apk';
 const apiBaseUrl = 'https://api.quickalapp.com';
+// Counted download: the API logs the hit for the owner dashboard, then
+// redirects to the real APK file from the live release policy.
+const directApkUrl = `${apiBaseUrl}/api/downloads/apk`;
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -233,12 +235,35 @@ function App() {
     return () => window.removeEventListener('hashchange', closeMenu);
   }, []);
 
+  // Count a page view for the owner dashboard. Fire-and-forget: failures are
+  // silent and never affect the visitor. Admin pages are excluded so the
+  // owner's own visits don't inflate the numbers.
+  React.useEffect(() => {
+    if (path === '/admin' || path === '/admin-payments') return;
+    try {
+      fetch(`${apiBaseUrl}/api/site/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'page_view',
+          path,
+          referrer: document.referrer || '',
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const isLegalPage =
     path === '/privacy-policy' ||
     path === '/delete-account' ||
     path === '/support' ||
     path === '/refund-policy';
   const isAdminPage = path === '/admin-payments';
+  const isAdminDashboard = path === '/admin';
   const isAboutPage = path === '/about';
 
   return (
@@ -256,7 +281,8 @@ function App() {
         {path === '/support' && <SupportPage />}
         {isAboutPage && <AboutPage />}
         {isAdminPage && <AdminPaymentsPage />}
-        {!isLegalPage && !isAdminPage && !isAboutPage && <HomePage />}
+        {isAdminDashboard && <AdminDashboardPage />}
+        {!isLegalPage && !isAdminPage && !isAdminDashboard && !isAboutPage && <HomePage />}
       </main>
       <Footer />
     </div>
@@ -923,6 +949,266 @@ function AdminPaymentsPage() {
           ))}
           {!loading && requests.length === 0 && <p className="empty-admin">No pending payments loaded.</p>}
         </div>
+      </div>
+    </section>
+  );
+}
+
+const dashProviderLabels = {
+  google_play: 'Play Store',
+  direct_website: 'Website (direct)',
+};
+const dashPlanLabels = {
+  monthly: 'Monthly - 1 month',
+  quarterly: 'Quarterly - 3 months',
+  yearly: 'Yearly - 1 year',
+};
+
+// Rows for the subscriptions table: always show every provider x plan combo
+// (zeros included) so the owner sees the full picture, plus any unexpected
+// plan ids that show up in the data.
+function dashSubscriptionRows(byPlan) {
+  const rows = [];
+  const seen = new Set();
+  Object.keys(dashProviderLabels).forEach((provider) => {
+    Object.keys(dashPlanLabels).forEach((planId) => {
+      const found = (byPlan || []).find(
+        (row) => row.provider === provider && row.planId === planId,
+      );
+      seen.add(`${provider}:${planId}`);
+      rows.push({ provider, planId, activeCount: found ? found.activeCount : 0 });
+    });
+  });
+  (byPlan || []).forEach((row) => {
+    if (!seen.has(`${row.provider}:${row.planId}`)) {
+      rows.push(row);
+    }
+  });
+  return rows;
+}
+
+function AdminDashboardPage() {
+  const [panelToken, setPanelToken] = React.useState(
+    () => window.localStorage.getItem('quickalPanelToken') || '',
+  );
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [summary, setSummary] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const loadSummary = React.useCallback(
+    async (tokenOverride) => {
+      const token = tokenOverride || panelToken;
+      if (!token) return;
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/panel/summary`, {
+          headers: { 'x-quickal-panel-token': token },
+        });
+        const payload = await response.json();
+        if (response.status === 401) {
+          window.localStorage.removeItem('quickalPanelToken');
+          setPanelToken('');
+          setSummary(null);
+          throw new Error('Session expired. Please log in again.');
+        }
+        if (!response.ok) throw new Error(payload.error || 'Analytics failed to load.');
+        setSummary(payload.summary);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Analytics failed to load.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [panelToken],
+  );
+
+  React.useEffect(() => {
+    if (panelToken) loadSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Login failed.');
+      window.localStorage.setItem('quickalPanelToken', payload.token);
+      setPanelToken(payload.token);
+      setPassword('');
+      await loadSummary(payload.token);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    window.localStorage.removeItem('quickalPanelToken');
+    setPanelToken('');
+    setSummary(null);
+    setError('');
+  }
+
+  const visits = summary?.websiteVisits;
+  const downloads = summary?.apkDownloads;
+  const users = summary?.appUsers;
+  const subs = summary?.subscriptions;
+
+  return (
+    <section className="legal-page admin-page">
+      <div className="legal-header">
+        <p className="eyebrow"><Gauge size={18} /> Owner Admin</p>
+        <h1>Analytics Dashboard</h1>
+        <p>Website visits, APK downloads, app usage and active subscriptions.</p>
+      </div>
+      <div className="legal-body admin-body">
+        {!panelToken && (
+          <form className="admin-token-row dash-login" onSubmit={handleLogin}>
+            <label>
+              Username
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Admin username"
+                autoComplete="username"
+              />
+            </label>
+            <label>
+              Password
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Admin password"
+                type="password"
+                autoComplete="current-password"
+              />
+            </label>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={loading || !username.trim() || !password}
+            >
+              <LockKeyhole size={17} />
+              {loading ? 'Signing in...' : 'Log In'}
+            </button>
+          </form>
+        )}
+
+        {error && <p className="admin-error">{error}</p>}
+
+        {panelToken && (
+          <>
+            <div className="dash-toolbar">
+              <span className="dash-updated">
+                {summary
+                  ? `Updated ${new Date(summary.generatedAt).toLocaleString()}`
+                  : loading
+                    ? 'Loading analytics...'
+                    : ''}
+              </span>
+              <div className="dash-toolbar-actions">
+                <button type="button" onClick={() => loadSummary()} disabled={loading}>
+                  Refresh
+                </button>
+                <a href="/admin-payments">Payment Approvals</a>
+                <button type="button" onClick={handleLogout}>
+                  Log Out
+                </button>
+              </div>
+            </div>
+
+            {summary && (
+              <>
+                <div className="dash-grid">
+                  <article className="dash-card glass-card">
+                    <header><Globe size={20} /> Website Visits</header>
+                    <strong className="dash-num">{visits.total}</strong>
+                    <span className="dash-sub">total page views</span>
+                    <ul>
+                      <li><span>Today</span><strong>{visits.today}</strong></li>
+                      <li><span>Last 7 days</span><strong>{visits.last7Days}</strong></li>
+                      <li><span>Last 30 days</span><strong>{visits.last30Days}</strong></li>
+                      <li>
+                        <span>Unique visitors (30 days)</span>
+                        <strong>{visits.uniqueVisitors.last30Days}</strong>
+                      </li>
+                    </ul>
+                  </article>
+
+                  <article className="dash-card glass-card">
+                    <header><Download size={20} /> APK Downloads</header>
+                    <strong className="dash-num">{downloads.total}</strong>
+                    <span className="dash-sub">total downloads (website APK)</span>
+                    <ul>
+                      <li><span>Today</span><strong>{downloads.today}</strong></li>
+                      <li><span>Last 7 days</span><strong>{downloads.last7Days}</strong></li>
+                      <li><span>Last 30 days</span><strong>{downloads.last30Days}</strong></li>
+                    </ul>
+                  </article>
+
+                  <article className="dash-card glass-card">
+                    <header><Smartphone size={20} /> App Users</header>
+                    <strong className="dash-num">{users.totalAccounts}</strong>
+                    <span className="dash-sub">registered accounts</span>
+                    <ul>
+                      <li><span>Active last 7 days</span><strong>{users.activeLast7Days}</strong></li>
+                      <li><span>Active last 30 days</span><strong>{users.activeLast30Days}</strong></li>
+                      <li><span>New last 30 days</span><strong>{users.newLast30Days}</strong></li>
+                    </ul>
+                  </article>
+
+                  <article className="dash-card glass-card">
+                    <header><Clock size={20} /> Trials &amp; Payments</header>
+                    <strong className="dash-num">{summary.trials.active}</strong>
+                    <span className="dash-sub">active free trials</span>
+                    <ul>
+                      <li><span>Trials started (total)</span><strong>{summary.trials.total}</strong></li>
+                      <li>
+                        <span>Pending payment requests</span>
+                        <strong>{summary.directPayments.pending}</strong>
+                      </li>
+                    </ul>
+                  </article>
+                </div>
+
+                <article className="dash-card glass-card dash-subs">
+                  <header><CreditCard size={20} /> Active Subscriptions</header>
+                  <strong className="dash-num">{subs.totalActive}</strong>
+                  <span className="dash-sub">currently active paid subscriptions</span>
+                  <table className="dash-table">
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <th>Plan</th>
+                        <th>Active</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashSubscriptionRows(subs.byPlan).map((row) => (
+                        <tr key={`${row.provider}-${row.planId}`}>
+                          <td>{dashProviderLabels[row.provider] || row.provider}</td>
+                          <td>{dashPlanLabels[row.planId] || row.planId}</td>
+                          <td>{row.activeCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </article>
+              </>
+            )}
+          </>
+        )}
       </div>
     </section>
   );
