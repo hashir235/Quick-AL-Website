@@ -10,6 +10,7 @@ import {
   Code2,
   CreditCard,
   Download,
+  Facebook,
   FileText,
   Gauge,
   Globe,
@@ -32,6 +33,7 @@ import {
   Trash2,
   Wrench,
   X,
+  Youtube,
 } from 'lucide-react';
 import './styles.css';
 import quickAlLogo from './assets/quick_al_icon.png';
@@ -69,11 +71,15 @@ const apiBaseUrl = 'https://api.quickalapp.com';
 // Counted download: the API logs the hit for the owner dashboard, then
 // redirects to the real APK file from the live release policy.
 const directApkUrl = `${apiBaseUrl}/api/downloads/apk`;
+// Video guides (how to use the app + who we are) and social page.
+const youtubePlaylistUrl = 'https://www.youtube.com/playlist?list=PLHV3ATsOdETE';
+const facebookUrl = 'https://www.facebook.com/profile.php?id=61590000736332';
 
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
   { label: 'Features', href: '/#features' },
+  { label: 'How to Use', href: '/#how-to' },
   { label: 'Screenshots', href: '/#screenshots' },
   { label: 'Pricing', href: '/#pricing' },
   { label: 'Reviews', href: '/#reviews' },
@@ -497,18 +503,48 @@ function HomePage() {
         </Reveal>
       </section>
 
+      <section className="section how-to-section" id="how-to">
+        <Reveal className="section-heading">
+          <p className="eyebrow">How to use</p>
+          <h2>Learn Quick AL step by step</h2>
+          <p>
+            New to Quick AL? Watch our video guides on YouTube. The playlist walks you through
+            every part of the app — from your first window estimate to cutting reports, glass
+            optimization, and invoices — and introduces who we are at MMH Tech.
+          </p>
+        </Reveal>
+        <Reveal variant="scale" className="download-panel glass-card" delay={140}>
+          <div>
+            <Youtube size={28} />
+            <strong>Quick AL video guides</strong>
+            <span>Step-by-step tutorials plus an introduction to MMH Tech — everything you need to get started.</span>
+          </div>
+          <a
+            className="primary-button"
+            href={youtubePlaylistUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Watch on YouTube
+            <ArrowRight size={18} />
+          </a>
+        </Reveal>
+      </section>
+
       <section className="section download-section" id="download">
         <Reveal className="section-heading">
-          <p className="eyebrow">Direct APK</p>
-          <h2>Install Quick AL from the website</h2>
+          <p className="eyebrow">Android app · Direct APK</p>
+          <h2>Install the Quick AL Android app</h2>
           <p>
-            Download the direct Android APK, install it on your phone, then choose a subscription plan inside the app.
+            Quick AL is an Android app. Download the direct APK, install it on your Android
+            phone, then choose a subscription plan inside the app. It is not available on
+            iPhone / iOS.
           </p>
         </Reveal>
         <Reveal variant="scale" className="download-panel glass-card" delay={140}>
           <div>
             <Smartphone size={28} />
-            <strong>Quick AL Direct APK</strong>
+            <strong>Quick AL Direct APK · Android only</strong>
             <span>For website users — pay locally via EasyPaisa or Allied Bank with WhatsApp support.</span>
           </div>
           <a className="primary-button" href={directApkUrl}>
@@ -1543,9 +1579,30 @@ function Footer() {
       <div>
         <strong>Quick AL by MMH</strong>
         <p>Professional aluminium and glass estimation software for Android.</p>
+        <div className="footer-social">
+          <a
+            className="footer-social-link"
+            href={youtubePlaylistUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Quick AL video guides on YouTube"
+          >
+            <Youtube size={18} /> YouTube guides
+          </a>
+          <a
+            className="footer-social-link"
+            href={facebookUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Quick AL on Facebook"
+          >
+            <Facebook size={18} /> Facebook
+          </a>
+        </div>
       </div>
       <div className="footer-links">
         <a href="/about">About MMH Tech</a>
+        <a href="/#how-to">How to Use</a>
         <a href="/support">Support</a>
         <a href="/privacy-policy">Privacy Policy</a>
         <a href="/refund-policy">Refund Policy</a>
