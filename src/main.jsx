@@ -323,6 +323,16 @@ function Header({ menuOpen, setMenuOpen }) {
             {item.label}
           </a>
         ))}
+        <a
+          className="nav-cta nav-youtube"
+          href={youtubePlaylistUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMenuOpen(false)}
+        >
+          <Youtube size={17} />
+          How to Use
+        </a>
         <a className="nav-cta" href={whatsappUrl}>
           <Phone size={17} />
           WhatsApp
@@ -520,13 +530,13 @@ function HomePage() {
             <span>Step-by-step tutorials plus an introduction to MMH Tech — everything you need to get started.</span>
           </div>
           <a
-            className="primary-button"
+            className="primary-button youtube-button"
             href={youtubePlaylistUrl}
             target="_blank"
             rel="noopener noreferrer"
           >
+            <Youtube size={20} />
             Watch on YouTube
-            <ArrowRight size={18} />
           </a>
         </Reveal>
       </section>
