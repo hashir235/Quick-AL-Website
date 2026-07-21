@@ -494,12 +494,12 @@ function HomePage() {
           ))}
         </div>
         <Reveal className="payment-note glass-card" delay={120}>
-          <Phone size={20} />
+          <CreditCard size={20} />
           <div>
             <strong>How to pay</strong>
             <p>
-              Direct plan payments are handled through <strong>EasyPaisa</strong> or <strong>Allied Bank</strong>.
-              Contact support on WhatsApp to get payment details and activate your subscription.
+              Pay securely inside the app with your <strong>card or wallet</strong>. Your subscription
+              activates instantly once the payment is confirmed — no waiting and no manual steps.
             </p>
             <p className="pricing-refund-note">
               All payments are final and non-refundable. If the app does not work after payment
@@ -555,7 +555,7 @@ function HomePage() {
           <div>
             <Smartphone size={28} />
             <strong>Quick AL Direct APK · Android only</strong>
-            <span>For website users — pay locally via EasyPaisa or Allied Bank with WhatsApp support.</span>
+            <span>For website users — pay securely with your card or wallet, right inside the app.</span>
           </div>
           <a className="primary-button" href={directApkUrl}>
             Download APK
@@ -1040,6 +1040,8 @@ function AdminDashboardPage() {
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [summary, setSummary] = React.useState(null);
+  const [manualEnabled, setManualEnabled] = React.useState(false);
+  const [manualBusy, setManualBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -1062,6 +1064,7 @@ function AdminDashboardPage() {
         }
         if (!response.ok) throw new Error(payload.error || 'Analytics failed to load.');
         setSummary(payload.summary);
+        setManualEnabled(Boolean(payload.settings && payload.settings.manualPaymentEnabled));
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Analytics failed to load.');
       } finally {
@@ -1070,6 +1073,29 @@ function AdminDashboardPage() {
     },
     [panelToken],
   );
+
+  async function toggleManualPayment() {
+    const next = !manualEnabled;
+    setManualBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/manual-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': panelToken,
+        },
+        body: JSON.stringify({ enabled: next }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not update the setting.');
+      setManualEnabled(Boolean(payload.manualPaymentEnabled));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not update the setting.');
+    } finally {
+      setManualBusy(false);
+    }
+  }
 
   React.useEffect(() => {
     if (panelToken) loadSummary();
@@ -1176,6 +1202,32 @@ function AdminDashboardPage() {
 
             {summary && (
               <>
+                <article className="dash-card glass-card dash-settings">
+                  <header><CreditCard size={20} /> Payment Settings</header>
+                  <div className="dash-toggle-row">
+                    <div>
+                      <strong>Manual bank transfer</strong>
+                      <span className="dash-sub">
+                        {manualEnabled
+                          ? 'ON — users can pay by bank transfer and submit a reference for your approval.'
+                          : 'OFF — users can only pay online (Safepay). Bank transfer is shown to them but disabled.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className={manualEnabled ? 'dash-toggle dash-toggle-on' : 'dash-toggle'}
+                      onClick={toggleManualPayment}
+                      disabled={manualBusy}
+                      aria-pressed={manualEnabled}
+                    >
+                      <span className="dash-toggle-knob" />
+                      <span className="dash-toggle-text">
+                        {manualBusy ? '…' : manualEnabled ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  </div>
+                </article>
+
                 <div className="dash-grid">
                   <article className="dash-card glass-card">
                     <header><Globe size={20} /> Website Visits</header>
