@@ -1044,6 +1044,14 @@ function AdminDashboardPage() {
   const [manualBusy, setManualBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [notifType, setNotifType] = React.useState('general');
+  const [notifTitle, setNotifTitle] = React.useState('');
+  const [notifBody, setNotifBody] = React.useState('');
+  const [notifBusy, setNotifBusy] = React.useState(false);
+  const [notifMsg, setNotifMsg] = React.useState('');
+  const [userList, setUserList] = React.useState([]);
+  const [usersLoading, setUsersLoading] = React.useState(false);
+  const [usersError, setUsersError] = React.useState('');
 
   const loadSummary = React.useCallback(
     async (tokenOverride) => {
@@ -1074,6 +1082,28 @@ function AdminDashboardPage() {
     [panelToken],
   );
 
+  const loadUsers = React.useCallback(
+    async (tokenOverride) => {
+      const token = tokenOverride || panelToken;
+      if (!token) return;
+      setUsersLoading(true);
+      setUsersError('');
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/panel/users`, {
+          headers: { 'x-quickal-panel-token': token },
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not load users.');
+        setUserList(Array.isArray(payload.users) ? payload.users : []);
+      } catch (caught) {
+        setUsersError(caught instanceof Error ? caught.message : 'Could not load users.');
+      } finally {
+        setUsersLoading(false);
+      }
+    },
+    [panelToken],
+  );
+
   async function toggleManualPayment() {
     const next = !manualEnabled;
     setManualBusy(true);
@@ -1097,8 +1127,42 @@ function AdminDashboardPage() {
     }
   }
 
+  async function sendNotification(event) {
+    event.preventDefault();
+    setNotifBusy(true);
+    setNotifMsg('');
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': panelToken,
+        },
+        body: JSON.stringify({
+          type: notifType,
+          title: notifTitle.trim(),
+          body: notifBody.trim(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not send the notification.');
+      setNotifMsg('Sent. Every app user will see it the next time they open the app.');
+      setNotifTitle('');
+      setNotifBody('');
+      setNotifType('general');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not send the notification.');
+    } finally {
+      setNotifBusy(false);
+    }
+  }
+
   React.useEffect(() => {
-    if (panelToken) loadSummary();
+    if (panelToken) {
+      loadSummary();
+      loadUsers();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1118,6 +1182,7 @@ function AdminDashboardPage() {
       setPanelToken(payload.token);
       setPassword('');
       await loadSummary(payload.token);
+      loadUsers(payload.token);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Login failed.');
     } finally {
@@ -1129,6 +1194,7 @@ function AdminDashboardPage() {
     window.localStorage.removeItem('quickalPanelToken');
     setPanelToken('');
     setSummary(null);
+    setUserList([]);
     setError('');
   }
 
@@ -1303,8 +1369,105 @@ function AdminDashboardPage() {
                     </tbody>
                   </table>
                 </article>
+
+                <article className="dash-card glass-card dash-notify">
+                  <header><Send size={20} /> Send Notification</header>
+                  <span className="dash-sub">
+                    Broadcast to every app user. It appears in the app's bell icon the next time
+                    they open the app (with an unread red dot until they view it).
+                  </span>
+                  <form className="notify-form" onSubmit={sendNotification}>
+                    <label>
+                      Type
+                      <select
+                        value={notifType}
+                        onChange={(e) => setNotifType(e.target.value)}
+                      >
+                        <option value="general">📢 General message</option>
+                        <option value="rate_update">🏷️ Rate list updated</option>
+                        <option value="version_update">⬆️ App update available</option>
+                      </select>
+                    </label>
+                    <label>
+                      Title
+                      <input
+                        value={notifTitle}
+                        maxLength={120}
+                        onChange={(e) => setNotifTitle(e.target.value)}
+                        placeholder="e.g. New 2026 rates are live"
+                      />
+                    </label>
+                    <label>
+                      Message
+                      <textarea
+                        value={notifBody}
+                        maxLength={1000}
+                        rows={3}
+                        onChange={(e) => setNotifBody(e.target.value)}
+                        placeholder="e.g. Aluminium rates have been updated. Please refresh your rate list."
+                      />
+                    </label>
+                    {notifMsg && <p className="admin-message">{notifMsg}</p>}
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={notifBusy || !notifTitle.trim() || !notifBody.trim()}
+                    >
+                      <Send size={17} />
+                      {notifBusy ? 'Sending…' : 'Send to all users'}
+                    </button>
+                  </form>
+                </article>
               </>
             )}
+
+            <article className="dash-card glass-card dash-users">
+              <header><Smartphone size={20} /> Users ({userList.length})</header>
+              <span className="dash-sub">
+                Every signed-up user with their account and workshop details.
+              </span>
+              <div className="dash-toolbar-actions" style={{ margin: '10px 0' }}>
+                <button type="button" onClick={() => loadUsers()} disabled={usersLoading}>
+                  {usersLoading ? 'Loading...' : 'Refresh users'}
+                </button>
+              </div>
+              {usersError && <p className="admin-error">{usersError}</p>}
+              <div style={{ overflowX: 'auto' }}>
+                <table className="dash-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Workshop</th>
+                      <th>Phone</th>
+                      <th>Location</th>
+                      <th>Plan</th>
+                      <th>Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userList.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.fullName || u.contractorName || '-'}</td>
+                        <td>{u.email || '-'}</td>
+                        <td>{u.workshopName || '-'}</td>
+                        <td>{u.workshopPhone || '-'}</td>
+                        <td>{u.workshopAddress || '-'}</td>
+                        <td>{u.subscriptionStatus}{u.plan ? ` (${u.plan})` : ''}</td>
+                        <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</td>
+                      </tr>
+                    ))}
+                    {userList.length === 0 && !usersLoading && (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', opacity: 0.6 }}>
+                          No users yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </article>
           </>
         )}
       </div>
