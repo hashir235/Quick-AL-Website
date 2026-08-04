@@ -1224,6 +1224,12 @@ function AdminDashboardPage() {
   const [statusFilter, setStatusFilter] = React.useState('');
   const [sortKey, setSortKey] = React.useState('joined');
   const [sortDir, setSortDir] = React.useState('desc');
+  const [release, setRelease] = React.useState(null);
+  const [playCode, setPlayCode] = React.useState('');
+  const [playName, setPlayName] = React.useState('');
+  const [playMsg, setPlayMsg] = React.useState('');
+  const [playBusy, setPlayBusy] = React.useState(false);
+  const [playNote, setPlayNote] = React.useState('');
 
   const loadSummary = React.useCallback(
     async (tokenOverride) => {
@@ -1290,6 +1296,55 @@ function AdminDashboardPage() {
     },
     [panelToken, search, sourceFilter, statusFilter, sortKey, sortDir],
   );
+
+  const loadRelease = React.useCallback(
+    async (tokenOverride) => {
+      const token = tokenOverride || panelToken;
+      if (!token) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/panel/release`, {
+          headers: { 'x-quickal-panel-token': token },
+        });
+        const payload = await response.json();
+        if (!response.ok) return;
+        setRelease(payload);
+        setPlayCode(String(payload.playStore.latestVersionCode || ''));
+        setPlayName(String(payload.playStore.latestVersionName || ''));
+        setPlayMsg(String(payload.playStore.updateMessage || ''));
+      } catch {
+        // Not fatal -- the rest of the dashboard still works.
+      }
+    },
+    [panelToken],
+  );
+
+  async function savePlayVersion(event) {
+    event.preventDefault();
+    setPlayBusy(true);
+    setPlayNote('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/release`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': panelToken,
+        },
+        body: JSON.stringify({
+          latestVersionCode: Number(playCode),
+          latestVersionName: playName.trim(),
+          updateMessage: playMsg.trim(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not save.');
+      setRelease(payload);
+      setPlayNote('Saved. Play Store users will be prompted the next time they open the app.');
+    } catch (caught) {
+      setPlayNote(caught instanceof Error ? caught.message : 'Could not save.');
+    } finally {
+      setPlayBusy(false);
+    }
+  }
 
   const loadSeries = React.useCallback(
     async (tokenOverride, days) => {
@@ -1368,6 +1423,7 @@ function AdminDashboardPage() {
       loadSummary();
       loadUsers();
       loadSeries();
+      loadRelease();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1412,6 +1468,7 @@ function AdminDashboardPage() {
       await loadSummary(payload.token);
       loadUsers(payload.token);
       loadSeries(payload.token);
+      loadRelease(payload.token);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Login failed.');
     } finally {
@@ -1508,6 +1565,7 @@ function AdminDashboardPage() {
                     loadSummary();
                     loadUsers();
                     loadSeries();
+                    loadRelease();
                   }}
                   disabled={loading}
                 >
@@ -1726,6 +1784,93 @@ function AdminDashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                </article>
+
+                {/* The website APK is live the moment it is deployed; a Play
+                    Store build only goes live once Google has reviewed it.
+                    So the two carry separate numbers, and this is where the
+                    Play one gets flipped -- after the release is actually
+                    live on the store, not before. */}
+                <article className="dash-card glass-card">
+                  <header><Download size={20} /> Update prompts</header>
+                  <span className="dash-sub">
+                    What each group of users is currently being told. Users see the
+                    prompt the next time they open the app.
+                  </span>
+
+                  {release && (
+                    <div className="dash-release-grid">
+                      <div className="dash-release-box">
+                        <span className="dash-release-tag" style={{ color: dashSourceColors.website_apk }}>
+                          <span className="dash-bar-dot" style={{ background: dashSourceColors.website_apk }} />
+                          Website APK
+                        </span>
+                        <strong className="dash-release-num">
+                          {release.website.latestVersionName || '—'}
+                        </strong>
+                        <span className="dash-kpi-sub">
+                          build {release.website.latestVersionCode} · updates in-app
+                        </span>
+                      </div>
+                      <div className="dash-release-box">
+                        <span className="dash-release-tag" style={{ color: dashSourceColors.play_store }}>
+                          <span className="dash-bar-dot" style={{ background: dashSourceColors.play_store }} />
+                          Play Store
+                        </span>
+                        <strong className="dash-release-num">
+                          {release.playStore.latestVersionCode > 0
+                            ? release.playStore.latestVersionName || '—'
+                            : 'Not set yet'}
+                        </strong>
+                        <span className="dash-kpi-sub">
+                          {release.playStore.latestVersionCode > 0
+                            ? `build ${release.playStore.latestVersionCode} · opens the store`
+                            : 'nobody is being prompted'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <form className="notify-form" onSubmit={savePlayVersion}>
+                    <p className="dash-sub" style={{ margin: 0 }}>
+                      <strong>Set this only after Google has approved the release
+                      and it is live on the store.</strong> Set it too early and
+                      users land on a listing that still offers the old version.
+                    </p>
+                    <label>
+                      Play Store build number
+                      <input
+                        value={playCode}
+                        inputMode="numeric"
+                        onChange={(e) => setPlayCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="e.g. 33"
+                      />
+                    </label>
+                    <label>
+                      Version name
+                      <input
+                        value={playName}
+                        maxLength={40}
+                        onChange={(e) => setPlayName(e.target.value)}
+                        placeholder="e.g. 1.8.3"
+                      />
+                    </label>
+                    <label>
+                      What changed
+                      <textarea
+                        value={playMsg}
+                        maxLength={600}
+                        rows={2}
+                        onChange={(e) => setPlayMsg(e.target.value)}
+                        placeholder="Shown to Play Store users in the update prompt."
+                      />
+                    </label>
+                    {playNote && <p className="admin-message">{playNote}</p>}
+                    <button className="primary-button" type="submit" disabled={playBusy || !playCode}>
+                      <Download size={17} />
+                      {playBusy ? 'Saving…' : 'Tell Play Store users'}
+                    </button>
+                  </form>
                 </article>
 
                 <article className="dash-card glass-card dash-notify">
