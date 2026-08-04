@@ -1033,6 +1033,169 @@ function dashSubscriptionRows(byPlan) {
   return rows;
 }
 
+// Where a user's copy of the app came from. "Unknown" is shown honestly rather
+// than guessed at: it means that user has not yet opened a build new enough to
+// report its own install source.
+const dashSourceLabels = {
+  play_store: 'Play Store',
+  website_apk: 'Website APK',
+  unknown: 'Not known yet',
+};
+const dashSourceColors = {
+  play_store: '#3882E4',
+  website_apk: '#18B69B',
+  unknown: '#9AA7B8',
+};
+
+function dashNumber(value) {
+  return Number(value || 0).toLocaleString('en-US');
+}
+
+function dashDate(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
+}
+
+/// Days since a timestamp, in words. Owners read "3 days ago" far faster than
+/// they read a date.
+function dashAgo(value) {
+  if (!value) return 'never';
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return 'never';
+  const days = Math.floor((Date.now() - then) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'a month ago' : `${months} months ago`;
+}
+
+/// A small area chart drawn as plain SVG.
+///
+/// The site carries no charting library and does not need one for this: a
+/// single series over a run of days is a path and a fill.
+function DashTrendChart({ points, metric, color }) {
+  const width = 720;
+  const height = 180;
+  const padX = 8;
+  const padY = 14;
+
+  if (!points || points.length === 0) {
+    return <p className="dash-sub">No data for this period yet.</p>;
+  }
+
+  const values = points.map((p) => Number(p[metric] || 0));
+  const peak = Math.max(...values, 1);
+  const stepX = points.length > 1 ? (width - padX * 2) / (points.length - 1) : 0;
+  const yFor = (value) =>
+    height - padY - (value / peak) * (height - padY * 2);
+
+  const line = values
+    .map((value, i) => `${i === 0 ? 'M' : 'L'} ${padX + i * stepX} ${yFor(value)}`)
+    .join(' ');
+  const area =
+    `${line} L ${padX + (values.length - 1) * stepX} ${height - padY}` +
+    ` L ${padX} ${height - padY} Z`;
+
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const busiest = points[values.indexOf(peak)];
+
+  return (
+    <div className="dash-chart">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img"
+        aria-label={`${metric} over ${points.length} days`}>
+        <defs>
+          <linearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.34" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75].map((fraction) => (
+          <line
+            key={fraction}
+            x1={padX}
+            x2={width - padX}
+            y1={padY + fraction * (height - padY * 2)}
+            y2={padY + fraction * (height - padY * 2)}
+            className="dash-chart-grid"
+          />
+        ))}
+        <path d={area} fill={`url(#grad-${metric})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2.4"
+          strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="dash-chart-foot">
+        <span>{points[0].day}</span>
+        <span className="dash-chart-stat">
+          <strong>{dashNumber(total)}</strong> total ·
+          {' '}peak <strong>{dashNumber(peak)}</strong>
+          {busiest ? ` on ${busiest.day}` : ''}
+        </span>
+        <span>{points[points.length - 1].day}</span>
+      </div>
+    </div>
+  );
+}
+
+/// One row of a horizontal breakdown bar, e.g. Play Store vs Website APK.
+function DashBar({ label, value, total, color, note }) {
+  const share = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="dash-bar-row">
+      <div className="dash-bar-head">
+        <span className="dash-bar-label">
+          <span className="dash-bar-dot" style={{ background: color }} />
+          {label}
+        </span>
+        <span className="dash-bar-value">
+          <strong>{dashNumber(value)}</strong> <em>{share}%</em>
+        </span>
+      </div>
+      <div className="dash-bar-track">
+        <div className="dash-bar-fill" style={{ width: `${share}%`, background: color }} />
+      </div>
+      {note && <span className="dash-bar-note">{note}</span>}
+    </div>
+  );
+}
+
+/// Turns the user list into a CSV the owner can open in Excel.
+function dashUsersToCsv(users) {
+  const header = [
+    'Name', 'Email', 'Workshop', 'Phone', 'Location',
+    'Source', 'App version', 'Plan', 'Joined', 'Last seen',
+  ];
+  const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const lines = users.map((u) =>
+    [
+      u.fullName || u.contractorName || '',
+      u.email || '',
+      u.workshopName || '',
+      u.workshopPhone || '',
+      u.workshopAddress || '',
+      dashSourceLabels[u.installSource] || u.installSource,
+      u.appVersion || '',
+      `${u.subscriptionStatus}${u.plan ? ` (${u.plan})` : ''}`,
+      u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : '',
+      u.lastSeenAt ? new Date(u.lastSeenAt).toISOString().slice(0, 10) : '',
+    ].map(escape).join(','),
+  );
+  return [header.map(escape).join(','), ...lines].join('\n');
+}
+
+function dashDownloadCsv(users) {
+  const blob = new Blob([dashUsersToCsv(users)], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `quickal-users-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function AdminDashboardPage() {
   const [panelToken, setPanelToken] = React.useState(
     () => window.localStorage.getItem('quickalPanelToken') || '',
@@ -1050,8 +1213,17 @@ function AdminDashboardPage() {
   const [notifBusy, setNotifBusy] = React.useState(false);
   const [notifMsg, setNotifMsg] = React.useState('');
   const [userList, setUserList] = React.useState([]);
+  const [userTotals, setUserTotals] = React.useState(null);
   const [usersLoading, setUsersLoading] = React.useState(false);
   const [usersError, setUsersError] = React.useState('');
+  const [series, setSeries] = React.useState(null);
+  const [rangeDays, setRangeDays] = React.useState(30);
+  const [chartMetric, setChartMetric] = React.useState('pageViews');
+  const [search, setSearch] = React.useState('');
+  const [sourceFilter, setSourceFilter] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('');
+  const [sortKey, setSortKey] = React.useState('joined');
+  const [sortDir, setSortDir] = React.useState('desc');
 
   const loadSummary = React.useCallback(
     async (tokenOverride) => {
@@ -1083,25 +1255,58 @@ function AdminDashboardPage() {
   );
 
   const loadUsers = React.useCallback(
-    async (tokenOverride) => {
+    async (tokenOverride, options) => {
       const token = tokenOverride || panelToken;
       if (!token) return;
+      const opts = options || {};
       setUsersLoading(true);
       setUsersError('');
       try {
-        const response = await fetch(`${apiBaseUrl}/api/admin/panel/users`, {
-          headers: { 'x-quickal-panel-token': token },
-        });
+        const params = new URLSearchParams();
+        const q = opts.q !== undefined ? opts.q : search;
+        const src = opts.source !== undefined ? opts.source : sourceFilter;
+        const st = opts.status !== undefined ? opts.status : statusFilter;
+        const sk = opts.sort !== undefined ? opts.sort : sortKey;
+        const sd = opts.dir !== undefined ? opts.dir : sortDir;
+        if (q.trim()) params.set('q', q.trim());
+        if (src) params.set('source', src);
+        if (st) params.set('status', st);
+        params.set('sort', sk);
+        params.set('dir', sd);
+
+        const response = await fetch(
+          `${apiBaseUrl}/api/admin/panel/users?${params.toString()}`,
+          { headers: { 'x-quickal-panel-token': token } },
+        );
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || 'Could not load users.');
         setUserList(Array.isArray(payload.users) ? payload.users : []);
+        setUserTotals(payload.totals || null);
       } catch (caught) {
         setUsersError(caught instanceof Error ? caught.message : 'Could not load users.');
       } finally {
         setUsersLoading(false);
       }
     },
-    [panelToken],
+    [panelToken, search, sourceFilter, statusFilter, sortKey, sortDir],
+  );
+
+  const loadSeries = React.useCallback(
+    async (tokenOverride, days) => {
+      const token = tokenOverride || panelToken;
+      if (!token) return;
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/api/admin/panel/timeseries?days=${days || rangeDays}`,
+          { headers: { 'x-quickal-panel-token': token } },
+        );
+        const payload = await response.json();
+        if (response.ok) setSeries(payload);
+      } catch {
+        // The charts are a nice-to-have; the numbers above them still load.
+      }
+    },
+    [panelToken, rangeDays],
   );
 
   async function toggleManualPayment() {
@@ -1162,9 +1367,32 @@ function AdminDashboardPage() {
     if (panelToken) {
       loadSummary();
       loadUsers();
+      loadSeries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Typing in the search box should not fire a request per keystroke.
+  React.useEffect(() => {
+    if (!panelToken) return undefined;
+    const timer = setTimeout(() => loadUsers(), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, sourceFilter, statusFilter, sortKey, sortDir]);
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'email' ? 'asc' : 'desc');
+    }
+  }
+
+  function changeRange(days) {
+    setRangeDays(days);
+    loadSeries(null, days);
+  }
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -1183,6 +1411,7 @@ function AdminDashboardPage() {
       setPassword('');
       await loadSummary(payload.token);
       loadUsers(payload.token);
+      loadSeries(payload.token);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Login failed.');
     } finally {
@@ -1195,6 +1424,8 @@ function AdminDashboardPage() {
     setPanelToken('');
     setSummary(null);
     setUserList([]);
+    setSeries(null);
+    setUserTotals(null);
     setError('');
   }
 
@@ -1202,6 +1433,21 @@ function AdminDashboardPage() {
   const downloads = summary?.apkDownloads;
   const users = summary?.appUsers;
   const subs = summary?.subscriptions;
+  const installs = summary?.installs;
+  const sourceTotals = installs?.bySource || userTotals?.bySource;
+  const knownSourceTotal =
+    (sourceTotals?.play_store || 0) + (sourceTotals?.website_apk || 0);
+  const allSourceTotal = knownSourceTotal + (sourceTotals?.unknown || 0);
+
+  const chartMetrics = [
+    { key: 'pageViews', label: 'Website visits', color: '#3882E4' },
+    { key: 'uniqueVisitors', label: 'Unique visitors', color: '#7C5CFF' },
+    { key: 'apkDownloads', label: 'APK downloads', color: '#18B69B' },
+    { key: 'signups', label: 'New sign-ups', color: '#F0932B' },
+    { key: 'activeUsers', label: 'Active users', color: '#E0508A' },
+  ];
+  const activeMetric =
+    chartMetrics.find((m) => m.key === chartMetric) || chartMetrics[0];
 
   return (
     <section className="legal-page admin-page">
@@ -1256,7 +1502,15 @@ function AdminDashboardPage() {
                     : ''}
               </span>
               <div className="dash-toolbar-actions">
-                <button type="button" onClick={() => loadSummary()} disabled={loading}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    loadSummary();
+                    loadUsers();
+                    loadSeries();
+                  }}
+                  disabled={loading}
+                >
                   Refresh
                 </button>
                 <a href="/admin-payments">Payment Approvals</a>
@@ -1292,6 +1546,110 @@ function AdminDashboardPage() {
                       </span>
                     </button>
                   </div>
+                </article>
+
+                {/* The six numbers worth glancing at before anything else. */}
+                <div className="dash-kpis">
+                  {[
+                    { label: 'Website visits', value: visits.total, sub: `${dashNumber(visits.today)} today`, icon: Globe },
+                    { label: 'APK downloads', value: downloads.total, sub: `${dashNumber(downloads.today)} today`, icon: Download },
+                    { label: 'Total users', value: users.totalAccounts, sub: `${dashNumber(users.newLast30Days)} new in 30 days`, icon: Smartphone },
+                    { label: 'Active users', value: users.activeLast30Days, sub: 'opened the app in 30 days', icon: BadgeCheck },
+                    { label: 'Paid subscriptions', value: subs.totalActive, sub: `${dashNumber(summary.trials.active)} on free trial`, icon: CreditCard },
+                    { label: 'Awaiting approval', value: summary.directPayments.pending, sub: 'bank transfer requests', icon: Clock, alert: summary.directPayments.pending > 0 },
+                  ].map((kpi) => {
+                    const Icon = kpi.icon;
+                    return (
+                      <article
+                        key={kpi.label}
+                        className={kpi.alert ? 'dash-kpi glass-card dash-kpi-alert' : 'dash-kpi glass-card'}
+                      >
+                        <span className="dash-kpi-icon"><Icon size={18} /></span>
+                        <strong className="dash-kpi-num">{dashNumber(kpi.value)}</strong>
+                        <span className="dash-kpi-label">{kpi.label}</span>
+                        <span className="dash-kpi-sub">{kpi.sub}</span>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {/* Play Store vs website APK -- the split the owner kept
+                    having to guess at. */}
+                <article className="dash-card glass-card">
+                  <header><Smartphone size={20} /> Where your users came from</header>
+                  <span className="dash-sub">
+                    {knownSourceTotal > 0
+                      ? `Of ${dashNumber(allSourceTotal)} users, ${dashNumber(knownSourceTotal)} have told us where they installed from.`
+                      : 'Nobody has opened the new build yet, so no install source has been reported.'}
+                  </span>
+                  <div className="dash-bars">
+                    {['play_store', 'website_apk', 'unknown'].map((key) => (
+                      <DashBar
+                        key={key}
+                        label={dashSourceLabels[key]}
+                        value={sourceTotals ? sourceTotals[key] : 0}
+                        total={allSourceTotal}
+                        color={dashSourceColors[key]}
+                        note={
+                          key === 'unknown'
+                            ? 'They will move into the right group the next time they open an updated app.'
+                            : installs
+                              ? `${dashNumber(installs.activeBySource[key])} active in the last 30 days`
+                              : null
+                        }
+                      />
+                    ))}
+                  </div>
+                  {installs && installs.byAppVersion.length > 0 && (
+                    <div className="dash-versions">
+                      <span className="dash-sub">App versions in use</span>
+                      <div className="dash-chip-row">
+                        {installs.byAppVersion.map((row) => (
+                          <span className="dash-chip" key={row.version}>
+                            {row.version} <strong>{dashNumber(row.total)}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </article>
+
+                {/* Totals say where you are; these say which way you are
+                    heading. */}
+                <article className="dash-card glass-card dash-trends">
+                  <header><Gauge size={20} /> Trends</header>
+                  <div className="dash-trend-controls">
+                    <div className="dash-chip-row">
+                      {chartMetrics.map((metric) => (
+                        <button
+                          key={metric.key}
+                          type="button"
+                          className={metric.key === chartMetric ? 'dash-chip dash-chip-on' : 'dash-chip'}
+                          onClick={() => setChartMetric(metric.key)}
+                          style={metric.key === chartMetric ? { borderColor: metric.color, color: metric.color } : undefined}
+                        >
+                          {metric.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="dash-chip-row">
+                      {[7, 30, 90].map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          className={days === rangeDays ? 'dash-chip dash-chip-on' : 'dash-chip'}
+                          onClick={() => changeRange(days)}
+                        >
+                          {days} days
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <DashTrendChart
+                    points={series ? series.points : null}
+                    metric={activeMetric.key}
+                    color={activeMetric.color}
+                  />
                 </article>
 
                 <div className="dash-grid">
@@ -1422,45 +1780,167 @@ function AdminDashboardPage() {
             )}
 
             <article className="dash-card glass-card dash-users">
-              <header><Smartphone size={20} /> Users ({userList.length})</header>
-              <span className="dash-sub">
-                Every signed-up user with their account and workshop details.
-              </span>
-              <div className="dash-toolbar-actions" style={{ margin: '10px 0' }}>
-                <button type="button" onClick={() => loadUsers()} disabled={usersLoading}>
-                  {usersLoading ? 'Loading...' : 'Refresh users'}
-                </button>
+              <header>
+                <Smartphone size={20} /> Users
+                <span className="dash-count-pill">
+                  {dashNumber(userList.length)}
+                  {userTotals && userList.length !== userTotals.all
+                    ? ` of ${dashNumber(userTotals.all)}`
+                    : ''}
+                </span>
+              </header>
+
+              <div className="dash-filters">
+                <label className="dash-search">
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search name, email, workshop, phone or city…"
+                  />
+                </label>
+
+                <div className="dash-chip-row">
+                  {[
+                    { key: '', label: 'All sources' },
+                    { key: 'play_store', label: dashSourceLabels.play_store },
+                    { key: 'website_apk', label: dashSourceLabels.website_apk },
+                    { key: 'unknown', label: dashSourceLabels.unknown },
+                  ].map((option) => (
+                    <button
+                      key={option.key || 'all'}
+                      type="button"
+                      className={option.key === sourceFilter ? 'dash-chip dash-chip-on' : 'dash-chip'}
+                      onClick={() => setSourceFilter(option.key)}
+                    >
+                      {option.label}
+                      {userTotals && option.key && (
+                        <strong> {dashNumber(userTotals.bySource[option.key])}</strong>
+                      )}
+                      {userTotals && !option.key && (
+                        <strong> {dashNumber(userTotals.all)}</strong>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="dash-chip-row">
+                  <button
+                    type="button"
+                    className={statusFilter === '' ? 'dash-chip dash-chip-on' : 'dash-chip'}
+                    onClick={() => setStatusFilter('')}
+                  >
+                    Any plan
+                  </button>
+                  {Object.keys(userTotals?.byStatus || {}).sort().map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={status === statusFilter ? 'dash-chip dash-chip-on' : 'dash-chip'}
+                      onClick={() => setStatusFilter(status)}
+                    >
+                      {status} <strong>{dashNumber(userTotals.byStatus[status])}</strong>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="dash-toolbar-actions">
+                  <button type="button" onClick={() => loadUsers()} disabled={usersLoading}>
+                    {usersLoading ? 'Loading…' : 'Refresh'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dashDownloadCsv(userList)}
+                    disabled={userList.length === 0}
+                  >
+                    Export CSV
+                  </button>
+                  {(search || sourceFilter || statusFilter) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch('');
+                        setSourceFilter('');
+                        setStatusFilter('');
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               </div>
+
               {usersError && <p className="admin-error">{usersError}</p>}
-              <div style={{ overflowX: 'auto' }}>
-                <table className="dash-table">
+
+              <div className="dash-table-wrap">
+                <table className="dash-table dash-table-users">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Workshop</th>
-                      <th>Phone</th>
-                      <th>Location</th>
-                      <th>Plan</th>
-                      <th>Joined</th>
+                      {[
+                        { key: 'name', label: 'Name' },
+                        { key: 'email', label: 'Email' },
+                        { key: null, label: 'Workshop' },
+                        { key: null, label: 'Phone' },
+                        { key: null, label: 'City' },
+                        { key: null, label: 'Source' },
+                        { key: null, label: 'Plan' },
+                        { key: 'joined', label: 'Joined' },
+                        { key: 'lastSeen', label: 'Last seen' },
+                      ].map((column) => (
+                        <th
+                          key={column.label}
+                          className={column.key ? 'dash-th-sortable' : undefined}
+                          onClick={column.key ? () => toggleSort(column.key) : undefined}
+                        >
+                          {column.label}
+                          {column.key === sortKey && (
+                            <span className="dash-sort-arrow">
+                              {sortDir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {userList.map((u) => (
                       <tr key={u.id}>
-                        <td>{u.fullName || u.contractorName || '-'}</td>
-                        <td>{u.email || '-'}</td>
-                        <td>{u.workshopName || '-'}</td>
-                        <td>{u.workshopPhone || '-'}</td>
-                        <td>{u.workshopAddress || '-'}</td>
-                        <td>{u.subscriptionStatus}{u.plan ? ` (${u.plan})` : ''}</td>
-                        <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</td>
+                        <td>{u.fullName || u.contractorName || '—'}</td>
+                        <td className="dash-td-email">{u.email || '—'}</td>
+                        <td>{u.workshopName || '—'}</td>
+                        <td>{u.workshopPhone || '—'}</td>
+                        <td>{u.workshopAddress || '—'}</td>
+                        <td>
+                          <span
+                            className="dash-source-tag"
+                            style={{ color: dashSourceColors[u.installSource] }}
+                          >
+                            <span
+                              className="dash-bar-dot"
+                              style={{ background: dashSourceColors[u.installSource] }}
+                            />
+                            {dashSourceLabels[u.installSource]}
+                          </span>
+                          {u.appVersion && (
+                            <span className="dash-version-tag">v{u.appVersion}</span>
+                          )}
+                        </td>
+                        <td>
+                          {u.subscriptionStatus}
+                          {u.plan ? <span className="dash-version-tag">{u.plan}</span> : null}
+                        </td>
+                        <td>{dashDate(u.createdAt)}</td>
+                        <td title={u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : ''}>
+                          {dashAgo(u.lastSeenAt)}
+                        </td>
                       </tr>
                     ))}
                     {userList.length === 0 && !usersLoading && (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', opacity: 0.6 }}>
-                          No users yet.
+                        <td colSpan={9} style={{ textAlign: 'center', opacity: 0.6 }}>
+                          {search || sourceFilter || statusFilter
+                            ? 'No user matches these filters.'
+                            : 'No users yet.'}
                         </td>
                       </tr>
                     )}
