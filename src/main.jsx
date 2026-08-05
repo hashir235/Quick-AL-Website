@@ -1036,6 +1036,12 @@ function dashSubscriptionRows(byPlan) {
 // Where a user's copy of the app came from. "Unknown" is shown honestly rather
 // than guessed at: it means that user has not yet opened a build new enough to
 // report its own install source.
+const dashNotifTypeLabels = {
+  general: '📢 General',
+  rate_update: '🏷️ Rate list',
+  version_update: '⬆️ App update',
+};
+
 const dashSourceLabels = {
   play_store: 'Play Store',
   website_apk: 'Website APK',
@@ -1212,6 +1218,9 @@ function AdminDashboardPage() {
   const [notifBody, setNotifBody] = React.useState('');
   const [notifBusy, setNotifBusy] = React.useState(false);
   const [notifMsg, setNotifMsg] = React.useState('');
+  const [notifFailed, setNotifFailed] = React.useState(false);
+  const [sentNotifs, setSentNotifs] = React.useState([]);
+  const [deletingId, setDeletingId] = React.useState('');
   const [userList, setUserList] = React.useState([]);
   const [userTotals, setUserTotals] = React.useState(null);
   const [usersLoading, setUsersLoading] = React.useState(false);
@@ -1387,11 +1396,43 @@ function AdminDashboardPage() {
     }
   }
 
+  // A 401 means the 12-hour panel session ran out while this page sat open.
+  // Clearing the token brings the login form back; leaving it in place gives a
+  // dashboard that looks signed in but silently refuses to do anything.
+  function handleExpiredSession(response) {
+    if (response.status !== 401) return false;
+    window.localStorage.removeItem('quickalPanelToken');
+    setPanelToken('');
+    setSummary(null);
+    return true;
+  }
+
+  const loadNotifications = React.useCallback(
+    async (tokenOverride) => {
+      const token = tokenOverride || panelToken;
+      if (!token) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/panel/notifications`, {
+          headers: { 'x-quickal-panel-token': token },
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        setSentNotifs(payload.notifications || []);
+      } catch {
+        // The send form still works without the history.
+      }
+    },
+    [panelToken],
+  );
+
   async function sendNotification(event) {
     event.preventDefault();
     setNotifBusy(true);
+    // The result belongs next to the button. It used to go into the page-wide
+    // error banner at the very top, so a failure down here was invisible and
+    // the whole feature looked broken.
     setNotifMsg('');
-    setError('');
+    setNotifFailed(false);
     try {
       const response = await fetch(`${apiBaseUrl}/api/admin/panel/notifications`, {
         method: 'POST',
@@ -1405,16 +1446,47 @@ function AdminDashboardPage() {
           body: notifBody.trim(),
         }),
       });
+      if (handleExpiredSession(response)) {
+        throw new Error('Session expired. Log in again and resend.');
+      }
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not send the notification.');
       setNotifMsg('Sent. Every app user will see it the next time they open the app.');
       setNotifTitle('');
       setNotifBody('');
       setNotifType('general');
+      loadNotifications();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not send the notification.');
+      setNotifFailed(true);
+      setNotifMsg(
+        caught instanceof Error ? caught.message : 'Could not send the notification.',
+      );
     } finally {
       setNotifBusy(false);
+    }
+  }
+
+  async function deleteNotification(id) {
+    setNotifMsg('');
+    setNotifFailed(false);
+    setDeletingId(id);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/panel/notifications/${id}`,
+        { method: 'DELETE', headers: { 'x-quickal-panel-token': panelToken } },
+      );
+      if (handleExpiredSession(response)) {
+        throw new Error('Session expired. Log in again.');
+      }
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not delete it.');
+      setSentNotifs((rows) => rows.filter((row) => row.id !== id));
+      setNotifMsg('Deleted. It is off every user’s app too.');
+    } catch (caught) {
+      setNotifFailed(true);
+      setNotifMsg(caught instanceof Error ? caught.message : 'Could not delete it.');
+    } finally {
+      setDeletingId('');
     }
   }
 
@@ -1424,6 +1496,7 @@ function AdminDashboardPage() {
       loadUsers();
       loadSeries();
       loadRelease();
+      loadNotifications();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1469,6 +1542,7 @@ function AdminDashboardPage() {
       loadUsers(payload.token);
       loadSeries(payload.token);
       loadRelease(payload.token);
+      loadNotifications(payload.token);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Login failed.');
     } finally {
@@ -1566,6 +1640,7 @@ function AdminDashboardPage() {
                     loadUsers();
                     loadSeries();
                     loadRelease();
+                    loadNotifications();
                   }}
                   disabled={loading}
                 >
@@ -1910,7 +1985,11 @@ function AdminDashboardPage() {
                         placeholder="e.g. Aluminium rates have been updated. Please refresh your rate list."
                       />
                     </label>
-                    {notifMsg && <p className="admin-message">{notifMsg}</p>}
+                    {notifMsg && (
+                      <p className={notifFailed ? 'admin-error' : 'admin-message'}>
+                        {notifMsg}
+                      </p>
+                    )}
                     <button
                       className="primary-button"
                       type="submit"
@@ -1920,6 +1999,43 @@ function AdminDashboardPage() {
                       {notifBusy ? 'Sending…' : 'Send to all users'}
                     </button>
                   </form>
+
+                  {/* Users read this same list, so deleting here takes a
+                      notification off every phone -- which is what you want
+                      when something went out with a wrong price or a typo. */}
+                  <div className="notif-sent">
+                    <h4>
+                      Already sent
+                      <span className="dash-count-pill">{sentNotifs.length}</span>
+                    </h4>
+                    {sentNotifs.length === 0 ? (
+                      <p className="dash-sub">Nothing sent yet.</p>
+                    ) : (
+                      <ul className="notif-list">
+                        {sentNotifs.map((n) => (
+                          <li className="notif-row" key={n.id}>
+                            <div className="notif-row-text">
+                              <strong>{n.title}</strong>
+                              <span>{n.body}</span>
+                              <em>
+                                {dashNotifTypeLabels[n.type] || n.type} ·{' '}
+                                {dashAgo(n.created_at)}
+                              </em>
+                            </div>
+                            <button
+                              type="button"
+                              className="notif-delete"
+                              title="Delete for everyone"
+                              disabled={deletingId === n.id}
+                              onClick={() => deleteNotification(n.id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </article>
               </>
             )}
