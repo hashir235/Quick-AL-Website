@@ -171,27 +171,25 @@ const features = [
   },
 ];
 
+// Keep in step with directWebsiteSubscriptionPlans in the API's config.js --
+// this page is only the shop window, the app reads its prices from there.
 const plans = [
   {
-    name: '1 Month',
-    price: 'Rs 1,200',
-    oldPrice: 'Rs 1,500',
-    discount: '20% OFF',
+    name: '3 Months',
+    price: 'Rs 1,800',
     note: 'Good for trying Quick AL through direct website access.',
   },
   {
-    name: '3 Months',
-    price: 'Rs 3,000',
-    oldPrice: 'Rs 4,000',
-    discount: '25% OFF',
+    name: '6 Months',
+    price: 'Rs 3,200',
+    discount: 'Save Rs 400',
     note: 'Balanced plan for regular estimation and reports.',
     highlighted: true,
   },
   {
     name: '1 Year',
-    price: 'Rs 10,000',
-    oldPrice: 'Rs 15,000',
-    discount: '33% OFF',
+    price: 'Rs 6,000',
+    discount: 'Save Rs 1,200',
     note: 'Best value for established aluminium and glass businesses.',
   },
 ];
