@@ -1,8 +1,15 @@
 import React from 'react';
-import { ActivityChart } from './ActivityChart.jsx';
-import { dashAgo, dashDate } from '../lib/format.js';
 
-export function UserActivityPanel({ user, apiBaseUrl, token, onClose }) {
+import { dashAgo, dashDate } from '../lib/format.js';
+import { ActivityChart } from './ActivityChart.jsx';
+
+/// One user's own record, opened under their row.
+///
+/// Everything here is that user's: who they are, what they have built, and how
+/// their use of the app has moved month by month. Nothing is averaged against
+/// anyone else, because the question this answers is "what is this shop
+/// doing?" and a comparison would only blur it.
+export function UserActivityPanel({ user, apiBaseUrl, token }) {
   const [data, setData] = React.useState(null);
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -21,93 +28,144 @@ export function UserActivityPanel({ user, apiBaseUrl, token, onClose }) {
         if (!response.ok) throw new Error(payload.error || 'Could not load activity.');
         if (!cancelled) setData(payload);
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load activity.');
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : 'Could not load activity.');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user.id, apiBaseUrl, token]);
 
   const totals = data?.totals;
-  // Against the thirty days before, so "busier or quieter than last month"
-  // can be read without doing the arithmetic.
-  const trend = totals
-    ? totals.projectsLast30 - totals.projectsPrev30
-    : 0;
+  // Against the thirty days before it, so "busier or quieter than last month"
+  // reads off the panel without anyone doing the arithmetic.
+  const trend = totals ? totals.projectsLast30 - totals.projectsPrev30 : 0;
+  const months = data?.monthly || [];
+  const activeMonths = months.filter((m) => m.worked > 0).length;
+
+  const identity = [
+    ['Name', user.fullName || user.contractorName],
+    ['Email', user.email],
+    ['Workshop', user.workshopName],
+    ['Phone', user.workshopPhone],
+    ['City', user.city],
+    ['Address', user.workshopAddress],
+    ['Plan', user.plan || user.subscriptionStatus],
+    ['App version', user.appVersion ? `v${user.appVersion}` : ''],
+    ['Joined', dashDate(user.createdAt)],
+    ['Last seen', dashAgo(user.lastSeenAt)],
+  ].filter(([, value]) => value);
 
   return (
-    <div className="dash-drawer-backdrop" onClick={onClose}>
-      <div className="dash-drawer" onClick={(e) => e.stopPropagation()}>
-        <div className="dash-drawer-head">
-          <div>
-            <h3>{user.fullName || user.contractorName || user.email}</h3>
-            <p>
-              {user.workshopName || 'No workshop name'}
-              {user.city ? ` · ${user.city}` : ''}
-              {user.email ? ` · ${user.email}` : ''}
-            </p>
+    <div className="ua-panel">
+      <div className="ua-identity">
+        {identity.map(([label, value]) => (
+          <div key={label} className="ua-identity-item">
+            <span className="ua-identity-label">{label}</span>
+            <span className="ua-identity-value">{value}</span>
           </div>
-          <button type="button" className="dash-view-btn" onClick={onClose}>Close</button>
-        </div>
-
-        {loading && <p className="dash-drawer-note">Loading…</p>}
-        {error && <p className="dash-drawer-note dash-drawer-error">{error}</p>}
-
-        {data && !loading && (
-          <>
-            <div className="dash-drawer-stats">
-              <div><span>{totals.projectsAll}</span><small>Projects, all time</small></div>
-              <div><span>{totals.projectsLast30}</span><small>Last 30 days</small></div>
-              <div>
-                <span style={{ color: trend > 0 ? '#3ddc97' : trend < 0 ? '#ff8b6b' : undefined }}>
-                  {trend > 0 ? `+${trend}` : trend}
-                </span>
-                <small>vs 30 days before</small>
-              </div>
-              <div><span>{totals.windowsAll}</span><small>Windows entered</small></div>
-            </div>
-
-            <h4 className="dash-drawer-subhead">Projects started, by month</h4>
-            <ActivityChart months={data.monthly} />
-            <div className="dash-chart-legend">
-              <span><i style={{ background: '#3882E4' }} />Estimation</span>
-              <span><i style={{ background: '#12A594' }} />Fabrication</span>
-              <span><i style={{ background: '#E07B39' }} />Glass</span>
-            </div>
-
-            <h4 className="dash-drawer-subhead">Months they actually worked</h4>
-            <p className="dash-drawer-note">
-              Projects touched that month — someone can spend a month on jobs
-              opened earlier, and by new projects alone that reads as though
-              they had stopped.
-            </p>
-            <div className="dash-worked-row">
-              {data.monthly.map((m) => (
-                <div key={m.month} className="dash-worked-cell" title={`${m.month}: ${m.worked}`}>
-                  <div
-                    className="dash-worked-fill"
-                    style={{
-                      height: `${Math.min(100, (m.worked / Math.max(1, ...data.monthly.map((x) => x.worked))) * 100)}%`,
-                      opacity: m.worked ? 1 : 0.15,
-                    }}
-                  />
-                  <small>{m.month.slice(5)}</small>
-                </div>
-              ))}
-            </div>
-
-            <div className="dash-drawer-meta">
-              <span>Joined {dashDate(data.user.createdAt)}</span>
-              <span>Last seen {dashAgo(data.user.lastSeenAt)}</span>
-              {data.user.appVersion && <span>v{data.user.appVersion}</span>}
-              {totals.lastProjectAt && (
-                <span>Last project {dashAgo(totals.lastProjectAt)}</span>
-              )}
-            </div>
-          </>
-        )}
+        ))}
       </div>
+
+      {loading && <p className="ua-note">Loading this user&rsquo;s record&hellip;</p>}
+      {error && <p className="ua-note ua-note-error">{error}</p>}
+
+      {data && !loading && (
+        <>
+          <div className="ua-stats">
+            <ActivityStat
+              value={totals.projectsAll}
+              label="Projects, all time"
+              sub={
+                totals.lastProjectAt
+                  ? `latest ${dashAgo(totals.lastProjectAt)}`
+                  : 'none yet'
+              }
+            />
+            <ActivityStat value={totals.projectsLast30} label="Last 30 days" />
+            <ActivityStat
+              value={trend > 0 ? `+${trend}` : String(trend)}
+              label="vs 30 days before"
+              tone={trend > 0 ? 'up' : trend < 0 ? 'down' : 'flat'}
+            />
+            <ActivityStat value={totals.windowsAll} label="Windows entered" />
+            <ActivityStat
+              value={`${activeMonths}/12`}
+              label="Months worked"
+              sub="months with any activity"
+            />
+          </div>
+
+          <div className="ua-chart-block">
+            <div className="ua-chart-head">
+              <h4>Projects started</h4>
+              <div className="ua-legend">
+                <span><i style={{ background: '#4C8DFF' }} />Estimation</span>
+                <span><i style={{ background: '#17C3B2' }} />Fabrication</span>
+                <span><i style={{ background: '#FFAF5F' }} />Glass</span>
+              </div>
+            </div>
+            <ActivityChart months={months} />
+          </div>
+
+          <div className="ua-chart-block">
+            <div className="ua-chart-head">
+              <h4>Months they actually worked</h4>
+            </div>
+            <p className="ua-note ua-note-quiet">
+              Projects touched in that month. Someone can spend a month on jobs
+              opened earlier, and counting new projects alone would read as
+              though they had stopped.
+            </p>
+            <WorkedStrip months={months} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ActivityStat({ value, label, sub, tone }) {
+  return (
+    <div className="ua-stat">
+      <span className={tone ? `ua-stat-value ua-stat-${tone}` : 'ua-stat-value'}>
+        {value}
+      </span>
+      <span className="ua-stat-label">{label}</span>
+      {sub && <span className="ua-stat-sub">{sub}</span>}
+    </div>
+  );
+}
+
+/// A twelve-month heat strip. Colour depth carries the amount, so a glance
+/// shows the busy stretches and the gaps without reading a single number.
+function WorkedStrip({ months }) {
+  const peak = Math.max(1, ...months.map((m) => m.worked));
+  return (
+    <div className="ua-worked">
+      {months.map((m) => {
+        const ratio = m.worked / peak;
+        return (
+          <div key={m.month} className="ua-worked-cell">
+            <div
+              className="ua-worked-box"
+              style={{
+                background: m.worked
+                  ? `rgba(76, 141, 255, ${0.18 + ratio * 0.72})`
+                  : 'rgba(255,255,255,0.05)',
+              }}
+              title={`${m.month}: ${m.worked} project${m.worked === 1 ? '' : 's'} touched`}
+            >
+              {m.worked > 0 && <span>{m.worked}</span>}
+            </div>
+            <small>{m.month.slice(5)}</small>
+          </div>
+        );
+      })}
     </div>
   );
 }

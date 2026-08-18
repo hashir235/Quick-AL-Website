@@ -10,14 +10,14 @@ export function sortedShots(globResult) {
     .map(([, src]) => src);
 }
 export const estimationShots = sortedShots(
-  import.meta.glob('./assets/screenshots/estimation/*.jpg', { eager: true, import: 'default' }),
+  import.meta.glob('../assets/screenshots/estimation/*.jpg', { eager: true, import: 'default' }),
 );
 export const fabricationShots = sortedShots(
-  import.meta.glob('./assets/screenshots/fabrication/*.jpg', { eager: true, import: 'default' }),
+  import.meta.glob('../assets/screenshots/fabrication/*.jpg', { eager: true, import: 'default' }),
 );
 export const glassShots = sortedShots(
-  import.meta.glob('./assets/screenshots/glass/*.jpg', { eager: true, import: 'default' }),
+  import.meta.glob('../assets/screenshots/glass/*.jpg', { eager: true, import: 'default' }),
 );
 export const settingsShots = sortedShots(
-  import.meta.glob('./assets/screenshots/settings/*.jpg', { eager: true, import: 'default' }),
+  import.meta.glob('../assets/screenshots/settings/*.jpg', { eager: true, import: 'default' }),
 );

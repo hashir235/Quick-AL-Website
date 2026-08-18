@@ -2078,3 +2078,155 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   border-color: var(--teal);
 }
 .notify-form .primary-button { justify-self: start; margin-top: 2px; }
+
+/* ---------------------------------------------------------------------------
+   User activity: the panel that opens under a row in the users table.
+
+   Its own block rather than more .dash-* rules: this is one self-contained
+   view, and keeping it together is what lets someone find every rule for it
+   without reading the whole file.
+   --------------------------------------------------------------------------- */
+
+.dash-project-counts { display: inline-flex; gap: 6px; font-variant-numeric: tabular-nums; }
+.dash-project-count {
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  opacity: 0.55;
+}
+.dash-project-count[style*="color"] { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+
+.dash-view-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.dash-view-btn:hover { background: rgba(76, 141, 255, 0.18); border-color: rgba(76, 141, 255, 0.5); }
+.dash-view-btn:active { transform: translateY(1px); }
+.dash-view-btn.is-open { background: rgba(76, 141, 255, 0.28); border-color: rgba(76, 141, 255, 0.7); }
+
+.dash-row-open > td { background: rgba(76, 141, 255, 0.08); }
+.dash-detail-row > td { padding: 0 !important; background: rgba(10, 20, 38, 0.5); }
+
+.ua-panel {
+  padding: 22px 24px 26px;
+  border-top: 2px solid rgba(76, 141, 255, 0.45);
+  animation: ua-open 0.22s ease;
+}
+@keyframes ua-open {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.ua-identity {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px 20px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ua-identity-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ua-identity-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  font-weight: 700;
+}
+.ua-identity-value { font-weight: 600; overflow-wrap: anywhere; }
+
+.ua-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.ua-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.ua-stat-value { font-size: 1.7rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ua-stat-up { color: #3ddc97; }
+.ua-stat-down { color: #ff8b6b; }
+.ua-stat-flat { opacity: 0.65; }
+.ua-stat-label { font-size: 0.78rem; opacity: 0.72; font-weight: 600; }
+.ua-stat-sub { font-size: 0.7rem; opacity: 0.45; }
+
+.ua-chart-block { margin-top: 22px; }
+.ua-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ua-chart-head h4 { margin: 0; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.01em; }
+.ua-legend { display: flex; gap: 16px; font-size: 0.76rem; opacity: 0.75; flex-wrap: wrap; }
+.ua-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ua-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.ua-chart-wrap { position: relative; }
+.ua-chart { width: 100%; height: auto; display: block; overflow: visible; }
+.ua-axis { fill: rgba(255, 255, 255, 0.55); font-size: 11px; font-weight: 600; }
+.ua-bar-total { fill: #fff; font-size: 12px; font-weight: 800; transition: opacity 0.12s ease; }
+
+.ua-tooltip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(6, 14, 28, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.76rem;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.ua-tooltip strong { font-size: 0.8rem; margin-bottom: 2px; }
+.ua-tooltip span { display: inline-flex; align-items: center; gap: 6px; }
+.ua-tooltip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+.ua-worked { display: flex; gap: 6px; }
+.ua-worked-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.ua-worked-box {
+  width: 100%;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.ua-worked-cell small { font-size: 0.66rem; opacity: 0.5; font-weight: 600; }
+
+.ua-note { font-size: 0.8rem; opacity: 0.6; margin: 6px 0 12px; }
+.ua-note-quiet { margin-top: 0; max-width: 62ch; }
+.ua-note-error { color: #ff8b6b; opacity: 1; }
+
+@media (max-width: 720px) {
+  .ua-panel { padding: 18px 14px 20px; }
+  .ua-worked-box { height: 34px; font-size: 0.7rem; }
+}

@@ -988,7 +988,8 @@ export function AdminDashboardPage() {
                   </thead>
                   <tbody>
                     {userList.map((u) => (
-                      <tr key={u.id}>
+                      <React.Fragment key={u.id}>
+                      <tr className={activityUser?.id === u.id ? 'dash-row-open' : undefined}>
                         <td>{u.fullName || u.contractorName || '—'}</td>
                         <td className="dash-td-email">{u.email || '—'}</td>
                         <td>{u.workshopName || '—'}</td>
@@ -1024,13 +1025,36 @@ export function AdminDashboardPage() {
                         <td>
                           <button
                             type="button"
-                            className="dash-view-btn"
-                            onClick={() => setActivityUser(u)}
+                            className={
+                              activityUser?.id === u.id
+                                ? 'dash-view-btn is-open'
+                                : 'dash-view-btn'
+                            }
+                            onClick={() =>
+                              setActivityUser(activityUser?.id === u.id ? null : u)
+                            }
                           >
-                            View
+                            {activityUser?.id === u.id ? 'Hide' : 'View'}
                           </button>
                         </td>
                       </tr>
+                      {/* The detail opens under the row it belongs to, so the
+                          person reading it never loses which user they are
+                          looking at -- which a floating panel does the moment
+                          it covers the table. */}
+                      {activityUser?.id === u.id && (
+                        <tr className="dash-detail-row">
+                          <td colSpan={11}>
+                            <UserActivityPanel
+                              user={u}
+                              apiBaseUrl={apiBaseUrl}
+                              token={panelToken}
+                              onClose={() => setActivityUser(null)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))}
                     {userList.length === 0 && !usersLoading && (
                       <tr>
@@ -1048,14 +1072,6 @@ export function AdminDashboardPage() {
           </>
         )}
 
-        {activityUser && (
-          <UserActivityPanel
-            user={activityUser}
-            apiBaseUrl={apiBaseUrl}
-            token={panelToken}
-            onClose={() => setActivityUser(null)}
-          />
-        )}
       </div>
     </section>
   );
