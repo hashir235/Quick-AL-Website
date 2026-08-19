@@ -1,6 +1,7 @@
 import React from 'react';
 import quickAlLogo from '../../assets/quick_al_icon.png';
 import { Reveal } from '../../components/Reveal.jsx';
+import { posterHighlights } from '../../components/Header.jsx';
 
 export function PosterShowcase() {
   return (

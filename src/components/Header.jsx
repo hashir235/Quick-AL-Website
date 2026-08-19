@@ -60,7 +60,7 @@ export function Header({ menuOpen, setMenuOpen }) {
   );
 }
 
-const posterHighlights = [
+export const posterHighlights = [
   { icon: Calculator, title: 'Estimate', text: 'Accurate calculations' },
   { icon: Scissors, title: 'Cutting Size', text: 'Optimized cutting' },
   { icon: PackageCheck, title: 'Material List', text: 'Detailed reports' },

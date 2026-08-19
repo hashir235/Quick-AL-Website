@@ -18,6 +18,7 @@ import { PosterShowcase } from './PosterShowcase.jsx';
 import { ReviewsSection } from './ReviewsSection.jsx';
 import { ScreenshotsSection } from './ScreenshotsSection.jsx';
 import { directApkUrl, whatsappUrl, youtubePlaylistUrl } from '../../lib/site.js';
+import { features, plans } from '../../lib/content.js';
 
 export function HomePage() {
   return (

@@ -1,7 +1,7 @@
 import {
   Phone,
 } from 'lucide-react';
-import { App } from '../../../App.jsx';
+import { dashSourceLabels } from './format.js';
 
 export function dashUsersToCsv(users) {
   const header = [

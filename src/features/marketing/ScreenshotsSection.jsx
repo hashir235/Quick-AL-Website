@@ -2,8 +2,8 @@ import React from 'react';
 import {
   Smartphone,
 } from 'lucide-react';
-import { App } from '../../App.jsx';
 import { Reveal } from '../../components/Reveal.jsx';
+import { screenshotCategories } from '../../lib/content.js';
 
 export function ScreenshotTrack({ category }) {
   const scrollRef = React.useRef(null);

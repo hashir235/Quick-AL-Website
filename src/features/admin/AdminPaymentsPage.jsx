@@ -5,6 +5,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiBaseUrl } from '../../lib/site.js';
+import { dashPlanLabels, dashProviderLabels } from './lib/format.js';
 
 export function AdminPaymentsPage() {
   const [token, setToken] = React.useState(() => window.localStorage.getItem('quickalAdminToken') || '');
@@ -104,15 +105,6 @@ export function AdminPaymentsPage() {
   );
 }
 
-const dashProviderLabels = {
-  google_play: 'Play Store',
-  direct_website: 'Website (direct)',
-};
-const dashPlanLabels = {
-  monthly: 'Monthly - 1 month',
-  quarterly: 'Quarterly - 3 months',
-  yearly: 'Yearly - 1 year',
-};
 
 // Rows for the subscriptions table: always show every provider x plan combo
 // (zeros included) so the owner sees the full picture, plus any unexpected

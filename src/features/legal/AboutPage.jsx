@@ -9,6 +9,7 @@ import {
 import quickAlLogo from '../../assets/quick_al_icon.png';
 import { Reveal } from '../../components/Reveal.jsx';
 import { supportEmail, whatsappUrl } from '../../lib/site.js';
+import { mmhServices, mmhTrustPoints } from './PrivacyPolicy.jsx';
 
 export function AboutPage() {
   React.useEffect(() => {

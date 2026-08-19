@@ -9,7 +9,6 @@ import {
   Smartphone,
   Wrench,
 } from 'lucide-react';
-import { App } from '../../App.jsx';
 import { LegalLayout } from '../../components/LegalLayout.jsx';
 import { apiPrivacyUrl } from '../../lib/site.js';
 
@@ -46,7 +45,7 @@ export function PrivacyPolicy() {
   );
 }
 
-const mmhServices = [
+export const mmhServices = [
   {
     icon: Smartphone,
     title: 'Android App Development',
@@ -79,7 +78,7 @@ const mmhServices = [
   },
 ];
 
-const mmhTrustPoints = [
+export const mmhTrustPoints = [
   { icon: BadgeCheck, text: 'FBR-registered business (NTN 3420147176827)' },
   { icon: Smartphone, text: 'Live product on the Google Play Store' },
   { icon: Server, text: 'Production infrastructure on AWS with SSL' },

@@ -13,7 +13,6 @@ import {
   Smartphone,
   Trash2,
 } from 'lucide-react';
-import { App } from '../../App.jsx';
 import { DashBar } from './components/DashBar.jsx';
 import { DashTrendChart } from './components/DashTrendChart.jsx';
 import { ProjectCountCell } from './components/ProjectCountCell.jsx';
@@ -21,6 +20,7 @@ import { UserActivityPanel } from './components/UserActivityPanel.jsx';
 import { dashDownloadCsv } from './lib/csv.js';
 import { dashAgo, dashDate, dashNumber, dashSubscriptionRows } from './lib/format.js';
 import { apiBaseUrl } from '../../lib/site.js';
+import { dashNotifTypeLabels, dashPlanLabels, dashProviderLabels, dashSourceColors, dashSourceLabels } from './lib/format.js';
 
 export function AdminDashboardPage() {
   const [activityUser, setActivityUser] = React.useState(null);

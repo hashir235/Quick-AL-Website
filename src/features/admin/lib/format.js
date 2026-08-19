@@ -1,5 +1,4 @@
 import React from 'react';
-import { App } from '../../../App.jsx';
 
 export function dashSubscriptionRows(byPlan) {
   const rows = [];
@@ -24,18 +23,18 @@ export function dashSubscriptionRows(byPlan) {
 // Where a user's copy of the app came from. "Unknown" is shown honestly rather
 // than guessed at: it means that user has not yet opened a build new enough to
 // report its own install source.
-const dashNotifTypeLabels = {
+export const dashNotifTypeLabels = {
   general: '📢 General',
   rate_update: '🏷️ Rate list',
   version_update: '⬆️ App update',
 };
 
-const dashSourceLabels = {
+export const dashSourceLabels = {
   play_store: 'Play Store',
   website_apk: 'Website APK',
   unknown: 'Not known yet',
 };
-const dashSourceColors = {
+export const dashSourceColors = {
   play_store: '#3882E4',
   website_apk: '#18B69B',
   unknown: '#9AA7B8',
@@ -69,3 +68,12 @@ export function dashAgo(value) {
 ///
 /// The site carries no charting library and does not need one for this: a
 /// single series over a run of days is a path and a fill.
+export const dashProviderLabels = {
+  google_play: 'Play Store',
+  direct_website: 'Website (direct)',
+};
+export const dashPlanLabels = {
+  monthly: 'Monthly - 1 month',
+  quarterly: 'Quarterly - 3 months',
+  yearly: 'Yearly - 1 year',
+};
