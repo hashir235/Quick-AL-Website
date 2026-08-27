@@ -4,8 +4,10 @@ import {
 import { dashSourceLabels } from './format.js';
 
 export function dashUsersToCsv(users) {
+  // City and address are different things — the city picks the rate list, the
+  // address is where the workshop is — so the export carries both.
   const header = [
-    'Name', 'Email', 'Workshop', 'Phone', 'Location',
+    'Name', 'Email', 'Workshop', 'Phone', 'City', 'Address',
     'Source', 'App version', 'Plan', 'Joined', 'Last seen',
   ];
   const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
@@ -15,6 +17,7 @@ export function dashUsersToCsv(users) {
       u.email || '',
       u.workshopName || '',
       u.workshopPhone || '',
+      u.city || '',
       u.workshopAddress || '',
       dashSourceLabels[u.installSource] || u.installSource,
       u.appVersion || '',

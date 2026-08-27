@@ -964,6 +964,7 @@ export function AdminDashboardPage() {
                         { key: null, label: 'Workshop' },
                         { key: null, label: 'Phone' },
                         { key: null, label: 'City' },
+                        { key: null, label: 'Address' },
                         { key: null, label: 'Projects' },
                         { key: null, label: 'Source' },
                         { key: null, label: 'Plan' },
@@ -994,10 +995,14 @@ export function AdminDashboardPage() {
                         <td className="dash-td-email">{u.email || '—'}</td>
                         <td>{u.workshopName || '—'}</td>
                         <td>{u.workshopPhone || '—'}</td>
-                        {/* The chosen city, which decides their rate list.
-                            This column used to show the street address, which
-                            is not the same thing and not what it claimed. */}
-                        <td title={u.workshopAddress || ''}>{u.city || '—'}</td>
+                        {/* The chosen city decides their rate list; the street
+                            address is a different thing, so each gets its own
+                            column. The address used to be a hover-only tooltip
+                            on the city, which meant nobody ever saw it. */}
+                        <td>{u.city || '—'}</td>
+                        <td className="dash-td-address" title={u.workshopAddress || ''}>
+                          {u.workshopAddress || '—'}
+                        </td>
                         <td><ProjectCountCell projects={u.projects} /></td>
                         <td>
                           <span
@@ -1044,7 +1049,7 @@ export function AdminDashboardPage() {
                           it covers the table. */}
                       {activityUser?.id === u.id && (
                         <tr className="dash-detail-row">
-                          <td colSpan={11}>
+                          <td colSpan={12}>
                             <UserActivityPanel
                               user={u}
                               apiBaseUrl={apiBaseUrl}
@@ -1058,7 +1063,7 @@ export function AdminDashboardPage() {
                     ))}
                     {userList.length === 0 && !usersLoading && (
                       <tr>
-                        <td colSpan={11} style={{ textAlign: 'center', opacity: 0.6 }}>
+                        <td colSpan={12} style={{ textAlign: 'center', opacity: 0.6 }}>
                           {search || sourceFilter || statusFilter
                             ? 'No user matches these filters.'
                             : 'No users yet.'}
