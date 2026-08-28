@@ -12,7 +12,7 @@ export function SupportPage() {
     <LegalLayout
       eyebrow="Support"
       title="Contact Quick AL Support"
-      intro="Use this page for app testing, subscription, account, report, invoice, privacy, and delete account help."
+      intro="Use this page for app testing, account, report, invoice, privacy, and delete account help."
     >
       <div className="contact-grid">
         <a className="contact-card" href={`mailto:${supportEmail}`}>
@@ -34,7 +34,6 @@ export function SupportPage() {
       <h2>Support topics</h2>
       <ul>
         <li>Google Play internal or closed testing access</li>
-        <li>Subscription, local bank or wallet payment, and free trial questions</li>
         <li>Login, account, or profile help</li>
         <li>Estimation, cutting report, invoice, and PDF sharing issues</li>
         <li>Privacy policy and delete account requests</li>

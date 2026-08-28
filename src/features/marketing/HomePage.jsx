@@ -17,7 +17,7 @@ import { Reveal } from '../../components/Reveal.jsx';
 import { PosterShowcase } from './PosterShowcase.jsx';
 import { ReviewsSection } from './ReviewsSection.jsx';
 import { ScreenshotsSection } from './ScreenshotsSection.jsx';
-import { directApkUrl, whatsappUrl, youtubePlaylistUrl } from '../../lib/site.js';
+import { directApkUrl, showPricing, whatsappUrl, youtubePlaylistUrl } from '../../lib/site.js';
 import { features, plans } from '../../lib/content.js';
 
 export function HomePage() {
@@ -89,6 +89,7 @@ export function HomePage() {
 
       <ScreenshotsSection />
 
+      {showPricing && (
       <section className="section pricing-section" id="pricing">
         <Reveal className="section-heading">
           <p className="eyebrow">Pricing</p>
@@ -133,6 +134,7 @@ export function HomePage() {
           </a>
         </Reveal>
       </section>
+      )}
 
       <section className="section how-to-section" id="how-to">
         <Reveal className="section-heading">
@@ -168,15 +170,14 @@ export function HomePage() {
           <h2>Install the Quick AL Android app</h2>
           <p>
             Quick AL is an Android app. Download the direct APK, install it on your Android
-            phone, then choose a subscription plan inside the app. It is not available on
-            iPhone / iOS.
+            phone, and sign in to start working. It is not available on iPhone / iOS.
           </p>
         </Reveal>
         <Reveal variant="scale" className="download-panel glass-card" delay={140}>
           <div>
             <Smartphone size={28} />
             <strong>Quick AL Direct APK · Android only</strong>
-            <span>For website users — pay securely with your card or wallet, right inside the app.</span>
+            <span>For website users — install it and start estimating straight away.</span>
           </div>
           <a className="primary-button" href={directApkUrl}>
             Download APK
@@ -217,8 +218,8 @@ export function HomePage() {
 
       <section className="support-strip">
         <Reveal variant="left">
-          <h2>Need account, subscription, or testing help?</h2>
-          <p>Support is available for Google Play testing, subscriptions, account access, privacy, and deletion requests.</p>
+          <h2>Need account or testing help?</h2>
+          <p>Support is available for Google Play testing, account access, privacy, and deletion requests.</p>
         </Reveal>
         <Reveal variant="right" delay={150}>
           <a className="primary-button" href="/support">

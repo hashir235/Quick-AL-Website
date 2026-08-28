@@ -12,13 +12,25 @@ export const directApkUrl = `${apiBaseUrl}/api/downloads/apk`;
 export const youtubePlaylistUrl = 'https://www.youtube.com/playlist?list=PLHV3ATsOdETE';
 export const facebookUrl = 'https://www.facebook.com/profile.php?id=61590000736332';
 
+/// Whether the site shows what Quick AL costs.
+///
+/// False while the app is free to use: a price list is the first thing a
+/// visitor reads, and quoting one for something nobody is charged for turns
+/// people away at the door. The section and its plan list are untouched --
+/// set this back to true and the page is exactly what it was.
+///
+/// The app is gated the same way, by SUBSCRIPTION_ENFORCEMENT_MODE on the API.
+/// Both have to come back together, or the site promises one thing and the app
+/// does another.
+export const showPricing = false;
+
 export const navItems = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
   { label: 'Features', href: '/#features' },
   { label: 'How to Use', href: '/#how-to' },
   { label: 'Screenshots', href: '/#screenshots' },
-  { label: 'Pricing', href: '/#pricing' },
+  ...(showPricing ? [{ label: 'Pricing', href: '/#pricing' }] : []),
   { label: 'Reviews', href: '/#reviews' },
   { label: 'Support', href: '/support' },
   { label: 'Privacy', href: '/privacy-policy' },

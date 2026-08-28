@@ -57,7 +57,7 @@ export const features = [
   {
     icon: ShieldCheck,
     title: 'Secure Access',
-    text: 'Accounts, subscriptions, privacy information, and deletion support are clearly handled.',
+    text: 'Accounts, privacy information, and deletion support are clearly handled.',
   },
 ];
 
@@ -113,7 +113,7 @@ export const screenshotCategories = [
     id: 'settings',
     title: 'Settings',
     blurb:
-      'Company info, estimation rules, fabrication margins, and payment preferences.',
+      'Company info, estimation rules, fabrication margins, and section rates.',
     icon: Settings,
     shots: settingsShots,
   },
