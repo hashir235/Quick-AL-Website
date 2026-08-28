@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { dashAgo, dashDate } from '../lib/format.js';
+import { dashAgo, dashDate, dashSourceLabels } from '../lib/format.js';
 import { ActivityChart } from './ActivityChart.jsx';
 
 /// One user's own record, opened under their row.
@@ -55,6 +55,11 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
     ['City', user.city],
     ['Address', user.workshopAddress],
     ['Plan', user.plan || user.subscriptionStatus],
+    // Which of the two apps this person is on *now*. People move between the
+    // Play build and the website APK, and the row this panel opens under
+    // already says so -- but the panel is where you look when you want one
+    // shop's full picture, so it has to answer it too.
+    ['App', dashSourceLabels[user.installSource] || ''],
     ['App version', user.appVersion ? `v${user.appVersion}` : ''],
     ['Joined', dashDate(user.createdAt)],
     ['Last seen', dashAgo(user.lastSeenAt)],
