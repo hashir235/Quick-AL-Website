@@ -966,6 +966,7 @@ export function AdminDashboardPage() {
                         { key: null, label: 'City' },
                         { key: null, label: 'Address' },
                         { key: null, label: 'Projects' },
+                        { key: null, label: 'Opens' },
                         { key: null, label: 'Source' },
                         { key: null, label: 'Plan' },
                         { key: 'joined', label: 'Joined' },
@@ -1004,6 +1005,9 @@ export function AdminDashboardPage() {
                           {u.workshopAddress || '—'}
                         </td>
                         <td><ProjectCountCell projects={u.projects} /></td>
+                        <td className="dash-td-views">
+                          {u.views > 0 ? u.views : <span style={{ opacity: 0.4 }}>—</span>}
+                        </td>
                         <td>
                           <span
                             className="dash-source-tag"
@@ -1049,7 +1053,7 @@ export function AdminDashboardPage() {
                           it covers the table. */}
                       {activityUser?.id === u.id && (
                         <tr className="dash-detail-row">
-                          <td colSpan={12}>
+                          <td colSpan={13}>
                             <UserActivityPanel
                               user={u}
                               apiBaseUrl={apiBaseUrl}
@@ -1063,7 +1067,7 @@ export function AdminDashboardPage() {
                     ))}
                     {userList.length === 0 && !usersLoading && (
                       <tr>
-                        <td colSpan={12} style={{ textAlign: 'center', opacity: 0.6 }}>
+                        <td colSpan={13} style={{ textAlign: 'center', opacity: 0.6 }}>
                           {search || sourceFilter || statusFilter
                             ? 'No user matches these filters.'
                             : 'No users yet.'}

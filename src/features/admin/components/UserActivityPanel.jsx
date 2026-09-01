@@ -47,6 +47,20 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
   const months = data?.monthly || [];
   const activeMonths = months.filter((m) => m.worked > 0).length;
 
+  // App opens. An older backend answers without this block, so every field is
+  // defaulted rather than assumed -- the panel should still render for
+  // whoever is looking at it mid-deploy.
+  const views = {
+    total: data?.views?.total ?? 0,
+    last7: data?.views?.last7 ?? 0,
+    last30: data?.views?.last30 ?? 0,
+    daily: data?.views?.daily ?? [],
+  };
+  // Counting began the day this shipped; before that there is no record, and
+  // a chart that starts at zero without saying why reads as "they stopped
+  // using it".
+  const countingSince = COUNTING_STARTED_ON;
+
   const identity = [
     ['Name', user.fullName || user.contractorName],
     ['Email', user.email],
@@ -119,6 +133,22 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
 
           <div className="ua-chart-block">
             <div className="ua-chart-head">
+              <h4>App opens</h4>
+              <div className="ua-legend">
+                <span>{views.total} total</span>
+                <span>{views.last7} in 7 days</span>
+                <span>{views.last30} in 30 days</span>
+              </div>
+            </div>
+            <p className="ua-note ua-note-quiet">
+              One count each time the app is opened. Counting started on{' '}
+              {countingSince}, so anything before that is not in here.
+            </p>
+            <DailyViewsChart daily={views.daily} />
+          </div>
+
+          <div className="ua-chart-block">
+            <div className="ua-chart-head">
               <h4>Months they actually worked</h4>
             </div>
             <p className="ua-note ua-note-quiet">
@@ -168,6 +198,49 @@ function WorkedStrip({ months }) {
               {m.worked > 0 && <span>{m.worked}</span>}
             </div>
             <small>{m.month.slice(5)}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/// The day counting began. Before this date there is no record of app opens,
+/// and a chart that simply starts at zero would read as a shop that stopped
+/// using the app rather than one we had not started counting yet.
+const COUNTING_STARTED_ON = '1 September 2026';
+
+/// Thirty days of app opens, one bar a day.
+///
+/// Bars rather than a line: opening the app is a discrete thing that happened
+/// a whole number of times, and a line drawn between two days implies values
+/// in between that nobody recorded. Quiet days keep their slot so a gap looks
+/// like a gap.
+function DailyViewsChart({ daily }) {
+  if (!daily.length) {
+    return <p className="ua-note ua-note-quiet">No opens recorded yet.</p>;
+  }
+  const peak = Math.max(1, ...daily.map((d) => d.views));
+  return (
+    <div className="ua-views">
+      {daily.map((d) => {
+        const ratio = d.views / peak;
+        return (
+          <div key={d.day} className="ua-views-cell" title={`${d.day}: ${d.views} open${d.views === 1 ? '' : 's'}`}>
+            <div className="ua-views-track">
+              <div
+                className="ua-views-bar"
+                style={{
+                  // A day with opens always shows something, however small its
+                  // share of the peak -- a one-pixel bar reads as zero.
+                  height: d.views ? `${Math.max(8, ratio * 100)}%` : '2px',
+                  background: d.views
+                    ? 'rgba(76, 141, 255, 0.85)'
+                    : 'rgba(255,255,255,0.10)',
+                }}
+              />
+            </div>
+            <small>{d.day.slice(8)}</small>
           </div>
         );
       })}

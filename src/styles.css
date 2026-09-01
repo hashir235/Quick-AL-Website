@@ -2230,3 +2230,27 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   .ua-panel { padding: 18px 14px 20px; }
   .ua-worked-box { height: 34px; font-size: 0.7rem; }
 }
+
+/* Thirty days of app opens, one bar a day. Bars share the heat-strip's
+   spacing so the two blocks under a user read as one family. */
+.ua-views { display: flex; gap: 4px; align-items: flex-end; }
+.ua-views-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.ua-views-track {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+.ua-views-bar { width: 100%; border-radius: 6px 6px 0 0; transition: height 160ms ease; }
+.ua-views-cell small { font-size: 0.62rem; opacity: 0.55; }
+.dash-td-views { font-weight: 700; }
