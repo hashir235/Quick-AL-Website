@@ -9,6 +9,132 @@ import { ActivityChart } from './ActivityChart.jsx';
 /// their use of the app has moved month by month. Nothing is averaged against
 /// anyone else, because the question this answers is "what is this shop
 /// doing?" and a comparison would only blur it.
+/// Switching one shop off, with the reason they will read.
+///
+/// The switch and the message sit together because neither is any use alone:
+/// an account switched off with no reason sends somebody to the phone with
+/// nothing to go on, and a message with nothing switched off is never seen.
+/// So the message is required before the switch will go off, and the button
+/// says so rather than failing afterwards.
+function AccountAccessControl({ user, apiBaseUrl, token }) {
+  const [blocked, setBlocked] = React.useState(Boolean(user.blocked));
+  const [message, setMessage] = React.useState(user.blockMessage || '');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [saved, setSaved] = React.useState('');
+
+  // A different row was opened: start again from that user's own state rather
+  // than leaving the last one's message in the box.
+  React.useEffect(() => {
+    setBlocked(Boolean(user.blocked));
+    setMessage(user.blockMessage || '');
+    setError('');
+    setSaved('');
+  }, [user.id, user.blocked, user.blockMessage]);
+
+  const trimmed = message.trim();
+  const canSwitchOff = trimmed.length > 0;
+
+  async function apply(nextBlocked) {
+    setBusy(true);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/user-access`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          blocked: nextBlocked,
+          message: trimmed,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not change access.');
+      setBlocked(Boolean(payload.user.blocked));
+      setMessage(payload.user.blockMessage || '');
+      // The row behind this panel still shows the old state until the list is
+      // reloaded, so say what happened here rather than leaving it ambiguous.
+      setSaved(
+        payload.user.blocked
+          ? 'Account switched off. They will see your message on next open.'
+          : 'Account switched back on.',
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not change access.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={blocked ? 'ua-access is-blocked' : 'ua-access'}>
+      <div className="ua-access-head">
+        <div>
+          <h4>App access</h4>
+          <p className="ua-access-state">
+            {blocked
+              ? 'Switched off — this shop cannot use the app.'
+              : 'On — this shop can use the app normally.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={blocked ? 'ua-switch is-off' : 'ua-switch is-on'}
+          role="switch"
+          aria-checked={!blocked}
+          aria-label="App access"
+          disabled={busy || (!blocked && !canSwitchOff)}
+          title={
+            !blocked && !canSwitchOff
+              ? 'Write the message this shop will see before switching them off'
+              : undefined
+          }
+          onClick={() => apply(!blocked)}
+        >
+          <span className="ua-switch-knob" />
+        </button>
+      </div>
+
+      <label className="ua-access-label" htmlFor={`block-msg-${user.id}`}>
+        Message shown to this shop
+      </label>
+      <textarea
+        id={`block-msg-${user.id}`}
+        className="ua-access-message"
+        rows={3}
+        maxLength={1000}
+        placeholder="e.g. Your payment for August has not cleared. Please contact us on 0300-0000000 to restore access."
+        value={message}
+        disabled={busy}
+        onChange={(event) => setMessage(event.target.value)}
+      />
+      <div className="ua-access-foot">
+        <span className="ua-access-hint">
+          {blocked
+            ? 'Edit the message and press Update to change what they read.'
+            : 'Required before the account can be switched off.'}
+        </span>
+        {blocked && (
+          <button
+            type="button"
+            className="ua-access-update"
+            disabled={busy || !canSwitchOff}
+            onClick={() => apply(true)}
+          >
+            Update message
+          </button>
+        )}
+      </div>
+      {error && <p className="ua-note ua-note-error">{error}</p>}
+      {saved && <p className="ua-note ua-note-ok">{saved}</p>}
+    </div>
+  );
+}
+
 export function UserActivityPanel({ user, apiBaseUrl, token }) {
   const [data, setData] = React.useState(null);
   const [error, setError] = React.useState('');
@@ -81,6 +207,8 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
 
   return (
     <div className="ua-panel">
+      <AccountAccessControl user={user} apiBaseUrl={apiBaseUrl} token={token} />
+
       <div className="ua-identity">
         {identity.map(([label, value]) => (
           <div key={label} className="ua-identity-item">

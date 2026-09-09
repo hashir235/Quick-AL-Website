@@ -1026,6 +1026,14 @@ export function AdminDashboardPage() {
                         <td>
                           {u.subscriptionStatus}
                           {u.plan ? <span className="dash-version-tag">{u.plan}</span> : null}
+                          {/* A switched-off account has to be findable without
+                              opening every row -- the reason for switching one
+                              off is usually that you are watching for it. */}
+                          {u.blocked ? (
+                            <span className="dash-blocked-tag" title="App access switched off">
+                              off
+                            </span>
+                          ) : null}
                         </td>
                         <td>{dashDate(u.createdAt)}</td>
                         <td title={u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : ''}>
