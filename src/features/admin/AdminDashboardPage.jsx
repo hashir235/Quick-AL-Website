@@ -1082,6 +1082,13 @@ export function AdminDashboardPage() {
                               apiBaseUrl={apiBaseUrl}
                               token={panelToken}
                               onClose={() => setActivityUser(null)}
+                              // Starting a plan or switching an account off
+                              // changes the row this panel is sitting under.
+                              // Without this the owner closes the panel and
+                              // sees the row exactly as it was, which reads as
+                              // "it did not work" -- and the only way to find
+                              // out otherwise was to reload the page.
+                              onUserChanged={() => loadUsers()}
                             />
                           </td>
                         </tr>

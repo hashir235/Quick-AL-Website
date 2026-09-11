@@ -33,7 +33,7 @@ function planDate(value) {
 /// recorded. A plan runs from today, so "6 months" means six months from now
 /// and not from the end of whatever they already had -- what that replaces is
 /// printed above the buttons rather than left to be discovered.
-function PlanControl({ user, apiBaseUrl, token }) {
+function PlanControl({ user, apiBaseUrl, token, onChanged }) {
   const [plans, setPlans] = React.useState(PLAN_FALLBACK);
   const [expiresAt, setExpiresAt] = React.useState(user.subscriptionExpiresAt || null);
   const [status, setStatus] = React.useState(user.subscriptionStatus || '');
@@ -95,6 +95,9 @@ function PlanControl({ user, apiBaseUrl, token }) {
         setStatus('Subscribed');
         setSaved(`On ${payload.plan.title} until ${planDate(payload.expiresAt)}.`);
       }
+      // The row under this panel carries the status and its colour, and both
+      // have just changed.
+      if (onChanged) onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not change the plan.');
     } finally {
@@ -162,7 +165,7 @@ function PlanControl({ user, apiBaseUrl, token }) {
 /// nothing to go on, and a message with nothing switched off is never seen.
 /// So the message is required before the switch will go off, and the button
 /// says so rather than failing afterwards.
-function AccountAccessControl({ user, apiBaseUrl, token }) {
+function AccountAccessControl({ user, apiBaseUrl, token, onChanged }) {
   const [blocked, setBlocked] = React.useState(Boolean(user.blocked));
   const [message, setMessage] = React.useState(user.blockMessage || '');
   const [busy, setBusy] = React.useState(false);
@@ -209,6 +212,8 @@ function AccountAccessControl({ user, apiBaseUrl, token }) {
           ? 'Account switched off. They will see your message on next open.'
           : 'Account switched back on.',
       );
+      // The row shows an "off" tag, which has just appeared or gone.
+      if (onChanged) onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not change access.');
     } finally {
@@ -281,7 +286,7 @@ function AccountAccessControl({ user, apiBaseUrl, token }) {
   );
 }
 
-export function UserActivityPanel({ user, apiBaseUrl, token }) {
+export function UserActivityPanel({ user, apiBaseUrl, token, onUserChanged }) {
   const [data, setData] = React.useState(null);
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -353,8 +358,18 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
 
   return (
     <div className="ua-panel">
-      <PlanControl user={user} apiBaseUrl={apiBaseUrl} token={token} />
-      <AccountAccessControl user={user} apiBaseUrl={apiBaseUrl} token={token} />
+      <PlanControl
+        user={user}
+        apiBaseUrl={apiBaseUrl}
+        token={token}
+        onChanged={onUserChanged}
+      />
+      <AccountAccessControl
+        user={user}
+        apiBaseUrl={apiBaseUrl}
+        token={token}
+        onChanged={onUserChanged}
+      />
 
       <div className="ua-identity">
         {identity.map(([label, value]) => (
