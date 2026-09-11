@@ -2134,6 +2134,67 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 .dash-view-btn.is-open { background: rgba(76, 141, 255, 0.28); border-color: rgba(76, 141, 255, 0.7); }
 
 .dash-row-open > td { background: rgba(76, 141, 255, 0.08); }
+
+/* Whether this shop is paying, readable down the whole table without opening
+   anything. Green is subscribed, amber is a plan that has run out; a left edge
+   as well as a tint, so it still reads for anyone who cannot tell the two
+   colours apart. Trials and accounts that never subscribed stay plain -- the
+   colour is about money, and about when it stops. */
+.dash-row-subscribed > td {
+  background: rgba(47, 143, 91, 0.10);
+}
+.dash-row-subscribed > td:first-child {
+  box-shadow: inset 3px 0 0 #2f8f5b;
+}
+.dash-row-expired > td {
+  background: rgba(255, 149, 0, 0.13);
+}
+.dash-row-expired > td:first-child {
+  box-shadow: inset 3px 0 0 #ff9500;
+}
+/* An open panel still wins, so you can see which row you are reading. */
+.dash-row-open.dash-row-subscribed > td,
+.dash-row-open.dash-row-expired > td {
+  background: rgba(76, 141, 255, 0.12);
+}
+
+/* Putting a shop on a plan, from their own panel. */
+.ua-plan {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  padding: 16px 18px 14px;
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.ua-plan-head h4 { margin: 0 0 2px; font-size: 0.95rem; }
+.ua-plan-state { margin: 0 0 12px; font-size: 0.78rem; opacity: 0.7; }
+.ua-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ua-plan-btn {
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.ua-plan-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.ua-plan-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+.ua-plan-btn.is-remove {
+  border-color: rgba(255, 139, 107, 0.45);
+  color: #ff8b6b;
+}
+.ua-plan-hint {
+  margin: 10px 0 0;
+  font-size: 0.74rem;
+  opacity: 0.55;
+  max-width: 68ch;
+}
 .dash-detail-row > td { padding: 0 !important; background: rgba(10, 20, 38, 0.5); }
 
 .ua-panel {

@@ -9,6 +9,152 @@ import { ActivityChart } from './ActivityChart.jsx';
 /// their use of the app has moved month by month. Nothing is averaged against
 /// anyone else, because the question this answers is "what is this shop
 /// doing?" and a comparison would only blur it.
+const PLAN_FALLBACK = [
+  { id: 'quarterly', title: '3 Months', durationMonths: 3 },
+  { id: 'halfyearly', title: '6 Months', durationMonths: 6 },
+  { id: 'yearly', title: '1 Year', durationMonths: 12 },
+];
+
+function planDate(value) {
+  if (!value) return '';
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return '';
+  return at.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/// Putting one shop on a plan.
+///
+/// There is no request to approve and no payment to check: the terms were
+/// settled between the owner and the shop, and this is where that decision is
+/// recorded. A plan runs from today, so "6 months" means six months from now
+/// and not from the end of whatever they already had -- what that replaces is
+/// printed above the buttons rather than left to be discovered.
+function PlanControl({ user, apiBaseUrl, token }) {
+  const [plans, setPlans] = React.useState(PLAN_FALLBACK);
+  const [expiresAt, setExpiresAt] = React.useState(user.subscriptionExpiresAt || null);
+  const [status, setStatus] = React.useState(user.subscriptionStatus || '');
+  const [busy, setBusy] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [saved, setSaved] = React.useState('');
+
+  React.useEffect(() => {
+    setExpiresAt(user.subscriptionExpiresAt || null);
+    setStatus(user.subscriptionStatus || '');
+    setError('');
+    setSaved('');
+  }, [user.id, user.subscriptionExpiresAt, user.subscriptionStatus]);
+
+  // The price list the website actually sells, so the panel can never offer a
+  // plan that does not exist. Falls back to the three it has always had if an
+  // older backend does not answer.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/panel/plans`, {
+          headers: { 'x-quickal-panel-token': token },
+        });
+        const payload = await response.json();
+        if (!cancelled && response.ok && Array.isArray(payload.plans) && payload.plans.length) {
+          setPlans(payload.plans);
+        }
+      } catch {
+        // Keep the fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, token]);
+
+  async function send(body, label) {
+    setBusy(label);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/user-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': token,
+        },
+        body: JSON.stringify({ userId: user.id, ...body }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not change the plan.');
+      if (body.revoke) {
+        setExpiresAt(null);
+        setStatus('No plan');
+        setSaved(payload.removed ? 'Granted plan removed.' : 'There was no granted plan to remove.');
+      } else {
+        setExpiresAt(payload.expiresAt);
+        setStatus('Subscribed');
+        setSaved(`On ${payload.plan.title} until ${planDate(payload.expiresAt)}.`);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not change the plan.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  const until = planDate(expiresAt);
+  const live = expiresAt && new Date(expiresAt).getTime() > Date.now();
+
+  return (
+    <div className="ua-plan">
+      <div className="ua-plan-head">
+        <div>
+          <h4>Subscription</h4>
+          <p className="ua-plan-state">
+            {live
+              ? `Subscribed until ${until}.`
+              : until
+                ? `Expired on ${until}.`
+                : `${status || 'No plan'} — nothing granted yet.`}
+          </p>
+        </div>
+      </div>
+
+      <div className="ua-plan-actions">
+        {plans.map((plan) => (
+          <button
+            key={plan.id}
+            type="button"
+            className="ua-plan-btn"
+            disabled={Boolean(busy)}
+            onClick={() => send({ planId: plan.id }, plan.id)}
+          >
+            {busy === plan.id ? 'Starting…' : `Start ${plan.title}`}
+          </button>
+        ))}
+        {live && (
+          <button
+            type="button"
+            className="ua-plan-btn is-remove"
+            disabled={Boolean(busy)}
+            onClick={() => send({ revoke: true }, 'revoke')}
+          >
+            {busy === 'revoke' ? 'Removing…' : 'Remove granted plan'}
+          </button>
+        )}
+      </div>
+
+      <p className="ua-plan-hint">
+        A plan starts today. Granting one while another is running replaces it,
+        so the remaining time is given up — the date above says what that is.
+        Only a plan granted here can be removed; one they paid for is untouched.
+      </p>
+      {error && <p className="ua-note ua-note-error">{error}</p>}
+      {saved && <p className="ua-note ua-note-ok">{saved}</p>}
+    </div>
+  );
+}
+
 /// Switching one shop off, with the reason they will read.
 ///
 /// The switch and the message sit together because neither is any use alone:
@@ -207,6 +353,7 @@ export function UserActivityPanel({ user, apiBaseUrl, token }) {
 
   return (
     <div className="ua-panel">
+      <PlanControl user={user} apiBaseUrl={apiBaseUrl} token={token} />
       <AccountAccessControl user={user} apiBaseUrl={apiBaseUrl} token={token} />
 
       <div className="ua-identity">

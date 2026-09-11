@@ -991,7 +991,22 @@ export function AdminDashboardPage() {
                   <tbody>
                     {userList.map((u) => (
                       <React.Fragment key={u.id}>
-                      <tr className={activityUser?.id === u.id ? 'dash-row-open' : undefined}>
+                      {/* Green while a shop is paying, amber once their plan
+                          has run out. Everyone else -- on trial, never
+                          subscribed -- stays plain, so the colour means one
+                          thing: money, and whether it has stopped. */}
+                      <tr
+                        className={[
+                          activityUser?.id === u.id ? 'dash-row-open' : '',
+                          u.subscriptionStatus === 'Subscribed'
+                            ? 'dash-row-subscribed'
+                            : u.subscriptionStatus === 'Expired'
+                              ? 'dash-row-expired'
+                              : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined}
+                      >
                         <td>{u.fullName || u.contractorName || '—'}</td>
                         <td className="dash-td-email">{u.email || '—'}</td>
                         <td>{u.workshopName || '—'}</td>
