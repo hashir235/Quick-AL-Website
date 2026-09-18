@@ -969,6 +969,7 @@ export function AdminDashboardPage() {
                         { key: null, label: 'Opens' },
                         { key: null, label: 'Source' },
                         { key: null, label: 'Plan' },
+                        { key: null, label: 'Paid' },
                         { key: 'joined', label: 'Joined' },
                         { key: 'lastSeen', label: 'Last seen' },
                         { key: null, label: '' },
@@ -1045,10 +1046,42 @@ export function AdminDashboardPage() {
                               opening every row -- the reason for switching one
                               off is usually that you are watching for it. */}
                           {u.blocked ? (
-                            <span className="dash-blocked-tag" title="App access switched off">
-                              off
+                            <span
+                              className="dash-blocked-tag"
+                              title={
+                                u.blockReason === 'plan_ended'
+                                  ? 'Switched off automatically: their plan ended'
+                                  : 'App access switched off'
+                              }
+                            >
+                              {u.blockReason === 'plan_ended' ? 'off · ended' : 'off'}
                             </span>
                           ) : null}
+                        </td>
+                        {/* What this shop paid you, straight from the receipts:
+                            the latest payment, with the total on hover when
+                            there has been more than one. */}
+                        <td
+                          className="dash-td-paid"
+                          title={
+                            u.payments && u.payments.receipts > 1
+                              ? `${u.payments.receipts} payments · PKR ${u.payments.totalPkr.toLocaleString('en-US')} in total`
+                              : ''
+                          }
+                        >
+                          {u.payments ? (
+                            <>
+                              <span className="dash-paid-amount">
+                                PKR {u.payments.last.amountPkr.toLocaleString('en-US')}
+                              </span>
+                              <span className="dash-version-tag">{u.payments.last.planTitle}</span>
+                              {u.payments.receipts > 1 && (
+                                <span className="dash-paid-count">×{u.payments.receipts}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ opacity: 0.4 }}>—</span>
+                          )}
                         </td>
                         <td>{dashDate(u.createdAt)}</td>
                         <td title={u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : ''}>
@@ -1076,7 +1109,7 @@ export function AdminDashboardPage() {
                           it covers the table. */}
                       {activityUser?.id === u.id && (
                         <tr className="dash-detail-row">
-                          <td colSpan={13}>
+                          <td colSpan={14}>
                             <UserActivityPanel
                               user={u}
                               apiBaseUrl={apiBaseUrl}
@@ -1097,7 +1130,7 @@ export function AdminDashboardPage() {
                     ))}
                     {userList.length === 0 && !usersLoading && (
                       <tr>
-                        <td colSpan={13} style={{ textAlign: 'center', opacity: 0.6 }}>
+                        <td colSpan={14} style={{ textAlign: 'center', opacity: 0.6 }}>
                           {search || sourceFilter || statusFilter
                             ? 'No user matches these filters.'
                             : 'No users yet.'}

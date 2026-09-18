@@ -2195,6 +2195,152 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   opacity: 0.55;
   max-width: 68ch;
 }
+.ua-plan-btn.is-send {
+  border-color: rgba(76, 141, 255, 0.5);
+  color: #8fb6ff;
+}
+
+/* Recording what a shop paid, and the receipts for it. A solid card rather
+   than a tint: it holds amounts and dates that have to be read exactly, and
+   it is the one box that deals in money, so it stands apart from the
+   switches around it. */
+.ua-pay {
+  border: 1px solid #d6e2f5;
+  border-left: 4px solid #3882e4;
+  border-radius: 14px;
+  padding: 16px 18px 14px;
+  margin-bottom: 14px;
+  background: #ffffff;
+  color: #0f1b2d;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.ua-pay-head h4 { margin: 0 0 2px; font-size: 0.95rem; color: #0a2540; }
+.ua-pay .ua-plan-state { color: #5b6678; opacity: 1; }
+.ua-pay .ua-note { color: #5b6678; opacity: 1; }
+.ua-pay .ua-note-ok { color: #15803d; font-weight: 600; }
+.ua-pay .ua-note-error { color: #c2410c; font-weight: 600; }
+.ua-pay .ua-plan-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f1b2d;
+}
+.ua-pay .ua-plan-btn:hover:not(:disabled) { background: #f1f5f9; }
+.ua-pay .ua-plan-btn.is-send { border-color: #93c5fd; color: #1d4ed8; }
+.ua-pay .ua-plan-btn.is-remove { border-color: #fdba74; color: #c2410c; }
+.ua-pay-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 4px;
+}
+.ua-pay-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ua-pay-plans,
+.ua-pay-wide { grid-column: 1 / -1; }
+.ua-pay-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #5b6678;
+}
+.ua-pay-input {
+  width: 100%;
+  border-radius: 9px;
+  border: 1px solid #cfd8e3;
+  background: #ffffff;
+  color: #0f1b2d;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 9px 11px;
+  color-scheme: light;
+}
+.ua-pay-input::placeholder { color: #9aa5b4; }
+.ua-pay-input:focus { outline: 2px solid rgba(56, 130, 228, 0.55); outline-offset: 1px; }
+.ua-pay-input:disabled { opacity: 0.5; }
+.ua-pay-amount { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ua-pay-sub { font-size: 0.74rem; color: #5b6678; min-height: 1em; }
+.ua-pay-choice { display: flex; flex-wrap: wrap; gap: 8px; }
+.ua-pay-option {
+  border-radius: 9px;
+  border: 1px solid #cfd8e3;
+  background: #f4f7fb;
+  color: #0f1b2d;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.ua-pay-option:hover:not(:disabled) { background: #e8eef7; }
+.ua-pay-option.is-on {
+  background: #3882e4;
+  border-color: #3882e4;
+  color: #fff;
+}
+.ua-pay-option:disabled { cursor: not-allowed; opacity: 0.5; }
+.ua-pay-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding-top: 4px;
+}
+.ua-pay-summary { font-size: 0.82rem; color: #334155; font-weight: 600; }
+.ua-pay-make {
+  border-radius: 10px;
+  border: 0;
+  background: #3882e4;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.ua-pay-make:hover:not(:disabled) { background: #4c8dff; }
+.ua-pay-make:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.ua-receipts {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ua-receipt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.ua-receipt-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+}
+.ua-receipt-no { font-size: 0.86rem; letter-spacing: 0.02em; color: #0a2540; }
+.ua-receipt-amount { font-weight: 800; font-variant-numeric: tabular-nums; }
+.ua-receipt-meta { font-size: 0.78rem; color: #475569; }
+.ua-receipt-sent,
+.ua-receipt-unsent {
+  flex-basis: 100%;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.ua-receipt-sent { color: #15803d; }
+.ua-receipt-unsent { color: #b45309; }
+.ua-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.dash-td-paid { white-space: nowrap; }
+.dash-paid-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dash-paid-count { margin-left: 6px; font-size: 0.74rem; opacity: 0.6; font-weight: 700; }
 .dash-detail-row > td { padding: 0 !important; background: rgba(10, 20, 38, 0.5); }
 
 .ua-panel {

@@ -26,31 +26,11 @@ function planDate(value) {
   });
 }
 
-/// Putting one shop on a plan.
-///
-/// There is no request to approve and no payment to check: the terms were
-/// settled between the owner and the shop, and this is where that decision is
-/// recorded. A plan runs from today, so "6 months" means six months from now
-/// and not from the end of whatever they already had -- what that replaces is
-/// printed above the buttons rather than left to be discovered.
-function PlanControl({ user, apiBaseUrl, token, onChanged }) {
+/// The plans the owner can put somebody on, from the price list the website
+/// sells, so the panel can never offer one that does not exist. Falls back to
+/// the three it has always had if an older backend does not answer.
+function usePanelPlans(apiBaseUrl, token) {
   const [plans, setPlans] = React.useState(PLAN_FALLBACK);
-  const [expiresAt, setExpiresAt] = React.useState(user.subscriptionExpiresAt || null);
-  const [status, setStatus] = React.useState(user.subscriptionStatus || '');
-  const [busy, setBusy] = React.useState('');
-  const [error, setError] = React.useState('');
-  const [saved, setSaved] = React.useState('');
-
-  React.useEffect(() => {
-    setExpiresAt(user.subscriptionExpiresAt || null);
-    setStatus(user.subscriptionStatus || '');
-    setError('');
-    setSaved('');
-  }, [user.id, user.subscriptionExpiresAt, user.subscriptionStatus]);
-
-  // The price list the website actually sells, so the panel can never offer a
-  // plan that does not exist. Falls back to the three it has always had if an
-  // older backend does not answer.
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -70,6 +50,38 @@ function PlanControl({ user, apiBaseUrl, token, onChanged }) {
       cancelled = true;
     };
   }, [apiBaseUrl, token]);
+  return plans;
+}
+
+/// Putting one shop on a plan, or stopping the one they are on.
+///
+/// There is no request to approve and no payment to check: the terms were
+/// settled between the owner and the shop, and this is where that decision is
+/// recorded. A plan runs from today, so "6 months" means six months from now
+/// and not from the end of whatever they already had -- what that replaces is
+/// printed above the buttons rather than left to be discovered.
+///
+/// A payment is recorded in the box below this one, which starts the plan as
+/// well; these buttons are for a plan given without one.
+function PlanControl({ user, plans, apiBaseUrl, token, onChanged }) {
+  const [expiresAt, setExpiresAt] = React.useState(user.subscriptionExpiresAt || null);
+  const [status, setStatus] = React.useState(user.subscriptionStatus || '');
+  const [busy, setBusy] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [saved, setSaved] = React.useState('');
+
+  React.useEffect(() => {
+    setExpiresAt(user.subscriptionExpiresAt || null);
+    setStatus(user.subscriptionStatus || '');
+  }, [user.id, user.subscriptionExpiresAt, user.subscriptionStatus]);
+
+  // Only a different shop clears what was said. The row refreshing after a
+  // change is that change landing, and wiping "Plan stopped" the moment it
+  // happens left the owner wondering whether it had.
+  React.useEffect(() => {
+    setError('');
+    setSaved('');
+  }, [user.id]);
 
   async function send(body, label) {
     setBusy(label);
@@ -86,14 +98,21 @@ function PlanControl({ user, apiBaseUrl, token, onChanged }) {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not change the plan.');
-      if (body.revoke) {
-        setExpiresAt(null);
-        setStatus('No plan');
-        setSaved(payload.removed ? 'Granted plan removed.' : 'There was no granted plan to remove.');
+      if (body.stop) {
+        setExpiresAt(payload.stopped > 0 ? new Date().toISOString() : expiresAt);
+        setStatus(payload.stopped > 0 ? 'Expired' : status);
+        setSaved(
+          payload.stopped > 0
+            ? `Plan stopped today.${payload.switchedOff ? ' The app has switched off for them.' : ''}`
+            : 'There was no running plan to stop.',
+        );
       } else {
         setExpiresAt(payload.expiresAt);
         setStatus('Subscribed');
-        setSaved(`On ${payload.plan.title} until ${planDate(payload.expiresAt)}.`);
+        setSaved(
+          `On ${payload.plan.title} until ${planDate(payload.expiresAt)}.` +
+            (payload.switchedOn ? ' The app is switched back on for them.' : ''),
+        );
       }
       // The row under this panel carries the status and its colour, and both
       // have just changed.
@@ -103,6 +122,15 @@ function PlanControl({ user, apiBaseUrl, token, onChanged }) {
     } finally {
       setBusy('');
     }
+  }
+
+  function stop() {
+    const confirmed = window.confirm(
+      `Stop ${user.fullName || user.email}'s plan today?\n\n` +
+        'Every plan they have from the website ends now — given or paid — and ' +
+        'the app switches off for them straight away, with a message to renew.',
+    );
+    if (confirmed) send({ stop: true }, 'stop');
   }
 
   const until = planDate(expiresAt);
@@ -117,7 +145,7 @@ function PlanControl({ user, apiBaseUrl, token, onChanged }) {
             {live
               ? `Subscribed until ${until}.`
               : until
-                ? `Expired on ${until}.`
+                ? `Ended on ${until}.`
                 : `${status || 'No plan'} — nothing granted yet.`}
           </p>
         </div>
@@ -140,20 +168,470 @@ function PlanControl({ user, apiBaseUrl, token, onChanged }) {
             type="button"
             className="ua-plan-btn is-remove"
             disabled={Boolean(busy)}
-            onClick={() => send({ revoke: true }, 'revoke')}
+            onClick={stop}
           >
-            {busy === 'revoke' ? 'Removing…' : 'Remove granted plan'}
+            {busy === 'stop' ? 'Stopping…' : 'Stop plan'}
           </button>
         )}
       </div>
 
       <p className="ua-plan-hint">
-        A plan starts today. Granting one while another is running replaces it,
-        so the remaining time is given up — the date above says what that is.
-        Only a plan granted here can be removed; one they paid for is untouched.
+        These start a plan without a payment — to record what they paid, use
+        Payment &amp; receipt below, which starts the plan too. A plan starts
+        today and replaces one that is running. Starting a plan switches the
+        app back on; stopping one switches it off, as any plan that ends does.
       </p>
       {error && <p className="ua-note ua-note-error">{error}</p>}
       {saved && <p className="ua-note ua-note-ok">{saved}</p>}
+    </div>
+  );
+}
+
+const PAYMENT_METHODS = [
+  { id: 'bank_transfer', label: 'Bank transfer' },
+  { id: 'jazzcash', label: 'JazzCash' },
+  { id: 'easypaisa', label: 'Easypaisa' },
+  { id: 'cash', label: 'Cash' },
+];
+
+/// Today in Pakistan, as the date input wants it: "2026-09-18".
+function pakistanToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function formatPkr(amount) {
+  return `PKR ${Math.round(Number(amount) || 0).toLocaleString('en-US')}`;
+}
+
+/// "2026-09-18" as "18 Sep 2026", without the day moving with the time zone.
+function calendarDate(day) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || ''));
+  if (!match) return '';
+  return new Date(Date.UTC(+match[1], +match[2] - 1, +match[3])).toLocaleDateString(
+    undefined,
+    { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' },
+  );
+}
+
+function sentAt(value) {
+  if (!value) return '';
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return '';
+  return at.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function addMonths(date, months) {
+  const copy = new Date(date.getTime());
+  copy.setMonth(copy.getMonth() + months);
+  return copy;
+}
+
+/// Recording what a shop paid, and the receipt they get for it.
+///
+/// One step: the plan they paid for starts, the app switches back on, and a
+/// numbered receipt is written. Sending it is a second, separate press, so the
+/// receipt can be opened and checked before it reaches anyone -- and a receipt
+/// with a mistake in it can still be deleted until it has been sent.
+function PaymentReceipts({ user, plans, apiBaseUrl, token, onChanged }) {
+  const [receipts, setReceipts] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [listError, setListError] = React.useState('');
+  const [planId, setPlanId] = React.useState('');
+  const [amount, setAmount] = React.useState('');
+  const [method, setMethod] = React.useState('bank_transfer');
+  const [reference, setReference] = React.useState('');
+  const [paidOn, setPaidOn] = React.useState(pakistanToday());
+  const [start, setStart] = React.useState('after_current');
+  const [busy, setBusy] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [saved, setSaved] = React.useState('');
+
+  // Another row was opened: start from that shop, not the last one's form.
+  React.useEffect(() => {
+    setPlanId('');
+    setAmount('');
+    setMethod('bank_transfer');
+    setReference('');
+    setPaidOn(pakistanToday());
+    setStart('after_current');
+    setError('');
+    setSaved('');
+  }, [user.id]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setListError('');
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/api/admin/panel/receipts?userId=${encodeURIComponent(user.id)}`,
+          { headers: { 'x-quickal-panel-token': token } },
+        );
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not load receipts.');
+        if (!cancelled) setReceipts(payload.receipts || []);
+      } catch (caught) {
+        if (!cancelled) {
+          setListError(caught instanceof Error ? caught.message : 'Could not load receipts.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, apiBaseUrl, token]);
+
+  const plan = plans.find((candidate) => candidate.id === planId) || null;
+  const amountValue = Number(String(amount).replace(/[^\d]/g, '')) || 0;
+  const liveUntil =
+    user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt).getTime() > Date.now()
+      ? new Date(user.subscriptionExpiresAt)
+      : null;
+  const followsCurrent = Boolean(liveUntil) && start === 'after_current';
+  const periodStart = followsCurrent ? liveUntil : new Date();
+  const periodEnd = plan ? addMonths(periodStart, Number(plan.durationMonths) || 0) : null;
+  const canCreate = Boolean(plan) && amountValue > 0 && Boolean(paidOn) && !busy;
+  const total = receipts.reduce((sum, receipt) => sum + (receipt.amountPkr || 0), 0);
+
+  async function create(event) {
+    event.preventDefault();
+    if (!canCreate) return;
+    setBusy('create');
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/receipts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-quickal-panel-token': token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          planId,
+          amountPkr: amountValue,
+          paymentMethod: method,
+          paymentReference: reference.trim(),
+          paidOn,
+          start: liveUntil ? start : 'today',
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not record this payment.');
+      const receipt = payload.receipt;
+      setReceipts((current) => [receipt, ...current]);
+      setAmount('');
+      setReference('');
+      setPlanId('');
+      setSaved(
+        `Receipt ${receipt.receiptNo} made — ${receipt.planTitle} until ` +
+          `${planDate(receipt.periodEndsAt)}.` +
+          (payload.switchedOn ? ' The app is switched back on for them.' : '') +
+          ' Check it, then press Send receipt.',
+      );
+      if (onChanged) onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not record this payment.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function openPdf(receipt) {
+    // Opened now, while the click still counts as the owner's, so the browser
+    // does not treat it as a pop-up; the PDF is put into it once it arrives.
+    const tab = window.open('', '_blank');
+    setBusy(`pdf:${receipt.id}`);
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/receipts/${receipt.id}/pdf`, {
+        headers: { 'x-quickal-panel-token': token },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Could not open the receipt.');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      if (tab) {
+        tab.location.href = url;
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Quick-AL-Receipt-${receipt.receiptNo}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+    } catch (caught) {
+      if (tab) tab.close();
+      setError(caught instanceof Error ? caught.message : 'Could not open the receipt.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function send(receipt) {
+    const again = receipt.emailCount > 0;
+    const confirmed = window.confirm(
+      `${again ? 'Send receipt again' : 'Email receipt'} ${receipt.receiptNo} to ${user.email}?\n\n` +
+        `${receipt.planTitle} · ${formatPkr(receipt.amountPkr)} · the PDF goes with it.`,
+    );
+    if (!confirmed) return;
+    setBusy(`send:${receipt.id}`);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/panel/receipts/${receipt.id}/send`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-quickal-panel-token': token,
+          },
+          body: '{}',
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not send the receipt.');
+      setReceipts((current) =>
+        current.map((item) => (item.id === receipt.id ? payload.receipt : item)),
+      );
+      setSaved(`Receipt ${receipt.receiptNo} emailed to ${payload.sentTo}.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not send the receipt.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function remove(receipt) {
+    const confirmed = window.confirm(
+      `Delete receipt ${receipt.receiptNo}?\n\nIt has not been sent, so nobody has it yet. ` +
+        'The plan it started stays as it is — use Stop plan above if that should end too.',
+    );
+    if (!confirmed) return;
+    setBusy(`delete:${receipt.id}`);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/receipts/${receipt.id}`, {
+        method: 'DELETE',
+        headers: { 'x-quickal-panel-token': token },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not delete the receipt.');
+      setReceipts((current) => current.filter((item) => item.id !== receipt.id));
+      setSaved(`Receipt ${receipt.receiptNo} deleted.`);
+      if (onChanged) onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not delete the receipt.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <div className="ua-pay">
+      <div className="ua-pay-head">
+        <div>
+          <h4>Payment &amp; receipt</h4>
+          <p className="ua-plan-state">
+            {receipts.length > 0
+              ? `${receipts.length} payment${receipts.length === 1 ? '' : 's'} recorded · ${formatPkr(total)} in total.`
+              : 'Nothing recorded yet. When they pay you, write it here.'}
+          </p>
+        </div>
+      </div>
+
+      <form className="ua-pay-form" onSubmit={create}>
+        <div className="ua-pay-field ua-pay-plans">
+          <span className="ua-pay-label">Plan they paid for</span>
+          <div className="ua-pay-choice" role="radiogroup" aria-label="Plan they paid for">
+            {plans.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                role="radio"
+                aria-checked={planId === candidate.id}
+                className={planId === candidate.id ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                disabled={Boolean(busy)}
+                onClick={() => setPlanId(candidate.id)}
+              >
+                {candidate.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="ua-pay-field">
+          <span className="ua-pay-label">Amount paid (PKR)</span>
+          <input
+            className="ua-pay-input ua-pay-amount"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="e.g. 15000"
+            value={amount}
+            disabled={Boolean(busy)}
+            onChange={(event) => setAmount(event.target.value.replace(/[^\d,]/g, '').slice(0, 11))}
+          />
+          <span className="ua-pay-sub">
+            {amountValue > 0 ? formatPkr(amountValue) : ' '}
+            {plan && plan.pricePkr ? ` · website price ${formatPkr(plan.pricePkr)}` : ''}
+          </span>
+        </label>
+
+        <label className="ua-pay-field">
+          <span className="ua-pay-label">Paid by</span>
+          <select
+            className="ua-pay-input"
+            value={method}
+            disabled={Boolean(busy)}
+            onChange={(event) => setMethod(event.target.value)}
+          >
+            {PAYMENT_METHODS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="ua-pay-field">
+          <span className="ua-pay-label">Paid on</span>
+          <input
+            className="ua-pay-input"
+            type="date"
+            max={pakistanToday()}
+            value={paidOn}
+            disabled={Boolean(busy)}
+            onChange={(event) => setPaidOn(event.target.value)}
+          />
+        </label>
+
+        <label className="ua-pay-field ua-pay-wide">
+          <span className="ua-pay-label">Transaction ID / reference (optional)</span>
+          <input
+            className="ua-pay-input"
+            maxLength={80}
+            autoComplete="off"
+            placeholder="From the bank or wallet message"
+            value={reference}
+            disabled={Boolean(busy)}
+            onChange={(event) => setReference(event.target.value)}
+          />
+        </label>
+
+        {liveUntil && (
+          <div className="ua-pay-field ua-pay-wide">
+            <span className="ua-pay-label">
+              They are already on a plan until {planDate(liveUntil)}
+            </span>
+            <div className="ua-pay-choice">
+              <button
+                type="button"
+                className={start === 'after_current' ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                disabled={Boolean(busy)}
+                onClick={() => setStart('after_current')}
+              >
+                Add after it ends
+              </button>
+              <button
+                type="button"
+                className={start === 'today' ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                disabled={Boolean(busy)}
+                onClick={() => setStart('today')}
+              >
+                Start today, replacing it
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="ua-pay-foot ua-pay-wide">
+          <span className="ua-pay-summary">
+            {plan
+              ? `${plan.title}: ${planDate(periodStart)} – ${planDate(periodEnd)}`
+              : 'Choose the plan, then write the amount.'}
+          </span>
+          <button type="submit" className="ua-pay-make" disabled={!canCreate}>
+            {busy === 'create' ? 'Making…' : 'Make receipt'}
+          </button>
+        </div>
+      </form>
+
+      {error && <p className="ua-note ua-note-error">{error}</p>}
+      {saved && <p className="ua-note ua-note-ok">{saved}</p>}
+
+      {loading && <p className="ua-note">Loading receipts&hellip;</p>}
+      {listError && <p className="ua-note ua-note-error">{listError}</p>}
+      {!loading && receipts.length > 0 && (
+        <ul className="ua-receipts">
+          {receipts.map((receipt) => (
+            <li key={receipt.id} className="ua-receipt">
+              <div className="ua-receipt-main">
+                <strong className="ua-receipt-no">{receipt.receiptNo}</strong>
+                <span className="ua-receipt-amount">{formatPkr(receipt.amountPkr)}</span>
+                <span className="ua-receipt-meta">
+                  {receipt.planTitle} · paid {calendarDate(receipt.paidOn)} ·{' '}
+                  {receipt.paymentMethodLabel}
+                  {receipt.paymentReference ? ` · ${receipt.paymentReference}` : ''}
+                </span>
+                <span className={receipt.emailCount > 0 ? 'ua-receipt-sent' : 'ua-receipt-unsent'}>
+                  {receipt.emailCount > 0
+                    ? `Sent to ${receipt.emailedTo} · ${sentAt(receipt.emailedAt)}` +
+                      (receipt.emailCount > 1 ? ` · ${receipt.emailCount} times` : '')
+                    : 'Not sent yet'}
+                </span>
+              </div>
+              <div className="ua-receipt-actions">
+                <button
+                  type="button"
+                  className="ua-plan-btn"
+                  disabled={Boolean(busy)}
+                  onClick={() => openPdf(receipt)}
+                >
+                  {busy === `pdf:${receipt.id}` ? 'Opening…' : 'View PDF'}
+                </button>
+                <button
+                  type="button"
+                  className="ua-plan-btn is-send"
+                  disabled={Boolean(busy)}
+                  onClick={() => send(receipt)}
+                >
+                  {busy === `send:${receipt.id}`
+                    ? 'Sending…'
+                    : receipt.emailCount > 0
+                      ? 'Send again'
+                      : 'Send receipt'}
+                </button>
+                {receipt.emailCount === 0 && (
+                  <button
+                    type="button"
+                    className="ua-plan-btn is-remove"
+                    disabled={Boolean(busy)}
+                    onClick={() => remove(receipt)}
+                  >
+                    {busy === `delete:${receipt.id}` ? 'Deleting…' : 'Delete'}
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -177,12 +655,19 @@ function AccountAccessControl({ user, apiBaseUrl, token, onChanged }) {
   React.useEffect(() => {
     setBlocked(Boolean(user.blocked));
     setMessage(user.blockMessage || '');
+  }, [user.id, user.blocked, user.blockMessage]);
+
+  // As in the plan box: a refresh of this same shop keeps the confirmation.
+  React.useEffect(() => {
     setError('');
     setSaved('');
-  }, [user.id, user.blocked, user.blockMessage]);
+  }, [user.id]);
 
   const trimmed = message.trim();
   const canSwitchOff = trimmed.length > 0;
+  // Switched off by the server because a paid plan ran out, rather than by
+  // hand. Worth saying: the fix is a payment, not a conversation.
+  const planEnded = blocked && user.blocked && user.blockReason === 'plan_ended';
 
   async function apply(nextBlocked) {
     setBusy(true);
@@ -227,9 +712,11 @@ function AccountAccessControl({ user, apiBaseUrl, token, onChanged }) {
         <div>
           <h4>App access</h4>
           <p className="ua-access-state">
-            {blocked
-              ? 'Switched off — this shop cannot use the app.'
-              : 'On — this shop can use the app normally.'}
+            {planEnded
+              ? 'Switched off automatically — their plan ended. Recording a payment switches them back on.'
+              : blocked
+                ? 'Switched off — this shop cannot use the app.'
+                : 'On — this shop can use the app normally.'}
           </p>
         </div>
         <button
@@ -287,6 +774,7 @@ function AccountAccessControl({ user, apiBaseUrl, token, onChanged }) {
 }
 
 export function UserActivityPanel({ user, apiBaseUrl, token, onUserChanged }) {
+  const plans = usePanelPlans(apiBaseUrl, token);
   const [data, setData] = React.useState(null);
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -360,6 +848,14 @@ export function UserActivityPanel({ user, apiBaseUrl, token, onUserChanged }) {
     <div className="ua-panel">
       <PlanControl
         user={user}
+        plans={plans}
+        apiBaseUrl={apiBaseUrl}
+        token={token}
+        onChanged={onUserChanged}
+      />
+      <PaymentReceipts
+        user={user}
+        plans={plans}
         apiBaseUrl={apiBaseUrl}
         token={token}
         onChanged={onUserChanged}

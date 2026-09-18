@@ -8,7 +8,8 @@ export function dashUsersToCsv(users) {
   // address is where the workshop is — so the export carries both.
   const header = [
     'Name', 'Email', 'Workshop', 'Phone', 'City', 'Address',
-    'Source', 'App version', 'Plan', 'Joined', 'Last seen',
+    'Source', 'App version', 'Plan', 'Last payment (PKR)', 'Last payment plan',
+    'Last paid on', 'Total paid (PKR)', 'Joined', 'Last seen',
   ];
   const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
   const lines = users.map((u) =>
@@ -22,6 +23,10 @@ export function dashUsersToCsv(users) {
       dashSourceLabels[u.installSource] || u.installSource,
       u.appVersion || '',
       `${u.subscriptionStatus}${u.plan ? ` (${u.plan})` : ''}`,
+      u.payments ? u.payments.last.amountPkr : '',
+      u.payments ? u.payments.last.planTitle : '',
+      u.payments ? u.payments.last.paidOn : '',
+      u.payments ? u.payments.totalPkr : '',
       u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : '',
       u.lastSeenAt ? new Date(u.lastSeenAt).toISOString().slice(0, 10) : '',
     ].map(escape).join(','),
