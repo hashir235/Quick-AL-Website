@@ -53,7 +53,7 @@ export function ActivityChart({ months }) {
                 x2={W}
                 y1={y}
                 y2={y}
-                stroke="rgba(255,255,255,0.08)"
+                stroke="rgba(15,27,45,0.12)"
                 strokeDasharray={v === 0 ? '' : '3 5'}
               />
               <text x={padL - 10} y={y + 4} className="ua-axis" textAnchor="end">
@@ -82,7 +82,7 @@ export function ActivityChart({ months }) {
                 y={padT}
                 width={slot}
                 height={plotH}
-                fill={isHover ? 'rgba(255,255,255,0.04)' : 'transparent'}
+                fill={isHover ? 'rgba(15,27,45,0.05)' : 'transparent'}
                 rx="6"
               />
               {SERIES.map((s) => {

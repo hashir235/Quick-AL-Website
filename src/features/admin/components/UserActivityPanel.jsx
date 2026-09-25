@@ -236,6 +236,764 @@ function addMonths(date, months) {
   return copy;
 }
 
+const ITEM_KINDS = [
+  { id: 'one_time', label: 'One-time' },
+  { id: 'recurring', label: 'Renews' },
+];
+
+const EMPTY_LINE = { title: '', description: '', kind: 'one_time', amount: '', isPlan: false };
+
+/// A picture chosen from the owner's machine, as the data URL the server takes.
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('That picture could not be read.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function amountOf(value) {
+  return Number(String(value).replace(/[^\d]/g, '')) || 0;
+}
+
+/// Billing a shop: what they are being asked to pay, and what happened to it.
+///
+/// A bill goes out first and is paid afterwards, which is the whole reason it
+/// is a separate box from the receipt below: it exists while the money does
+/// not. The QR on it is the owner's own, uploaded here -- a Raast code carries
+/// the amount and an expiry, so a bill can also carry one made for that bill,
+/// and anything without one falls back to the default.
+///
+/// Marking a bill paid is the step that starts the plan on it and writes the
+/// receipt, so the shop's record and their app both move at the same moment.
+function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
+  const [bills, setBills] = React.useState([]);
+  const [defaultQr, setDefaultQr] = React.useState('');
+  const [loading, setLoading] = React.useState(true);
+  const [listError, setListError] = React.useState('');
+  const [lines, setLines] = React.useState([{ ...EMPTY_LINE }]);
+  const [planId, setPlanId] = React.useState('');
+  const [dueOn, setDueOn] = React.useState('');
+  const [notes, setNotes] = React.useState('');
+  const [billQr, setBillQr] = React.useState(null);
+  const [paying, setPaying] = React.useState(null);
+  const [payOn, setPayOn] = React.useState(pakistanToday());
+  const [payMethod, setPayMethod] = React.useState('bank_transfer');
+  const [payReference, setPayReference] = React.useState('');
+  const [payStart, setPayStart] = React.useState('after_current');
+  const [busy, setBusy] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [saved, setSaved] = React.useState('');
+
+  // Another shop was opened: their bills, and an empty form.
+  React.useEffect(() => {
+    setLines([{ ...EMPTY_LINE }]);
+    setPlanId('');
+    setDueOn('');
+    setNotes('');
+    setBillQr(null);
+    setPaying(null);
+    setError('');
+    setSaved('');
+  }, [user.id]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setListError('');
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/api/admin/panel/bills?userId=${encodeURIComponent(user.id)}`,
+          { headers: { 'x-quickal-panel-token': token } },
+        );
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not load bills.');
+        if (!cancelled) {
+          setBills(payload.bills || []);
+          setDefaultQr(payload.defaultQr || '');
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setListError(caught instanceof Error ? caught.message : 'Could not load bills.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, apiBaseUrl, token]);
+
+  const plan = plans.find((candidate) => candidate.id === planId) || null;
+  const total = lines.reduce((sum, line) => sum + amountOf(line.amount), 0);
+  const unpaid = bills.filter((bill) => bill.status === 'unpaid');
+  const unpaidTotal = unpaid.reduce((sum, bill) => sum + (bill.totalPkr || 0), 0);
+  const paidTotal = bills
+    .filter((bill) => bill.status === 'paid')
+    .reduce((sum, bill) => sum + (bill.totalPkr || 0), 0);
+  const liveUntil =
+    user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt).getTime() > Date.now()
+      ? new Date(user.subscriptionExpiresAt)
+      : null;
+  const filled = lines.filter((line) => line.title.trim() && amountOf(line.amount) > 0);
+  const planLine = lines.find((line) => line.isPlan);
+  const canCreate =
+    filled.length === lines.length &&
+    lines.length > 0 &&
+    total > 0 &&
+    (!planId || Boolean(planLine)) &&
+    !busy;
+
+  function setLine(index, patch) {
+    setLines((current) =>
+      current.map((line, at) => (at === index ? { ...line, ...patch } : line)),
+    );
+  }
+
+  /// Picking a plan writes its own line, so the bill carries what the plan
+  /// costs without the owner typing it twice -- and that line is the one the
+  /// receipt is written for when the bill is paid.
+  function choosePlan(candidate) {
+    const next = planId === candidate.id ? '' : candidate.id;
+    setPlanId(next);
+    setLines((current) => {
+      const withoutPlan = current.filter((line) => !line.isPlan);
+      if (!next) {
+        return withoutPlan.length ? withoutPlan : [{ ...EMPTY_LINE }];
+      }
+      const months = Number(candidate.durationMonths) || 0;
+      const line = {
+        title: `Quick AL Subscription — ${candidate.title}`,
+        description: `Full access to Quick AL for ${months} month${months === 1 ? '' : 's'}: estimation, fabrication, cutting lists, glass sheets and PDF reports.`,
+        kind: 'recurring',
+        amount: String(candidate.pricePkr || ''),
+        isPlan: true,
+      };
+      const rest = withoutPlan.filter((item) => item.title.trim() || amountOf(item.amount) > 0);
+      return [...rest, line];
+    });
+  }
+
+  async function uploadDefaultQr(file) {
+    setBusy('qr');
+    setError('');
+    setSaved('');
+    try {
+      const image = await readImageFile(file);
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/pay-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quickal-panel-token': token },
+        body: JSON.stringify({ image }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not save this QR.');
+      setDefaultQr(payload.image || '');
+      setSaved('QR saved. Every new bill will carry it.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not save this QR.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function removeDefaultQr() {
+    if (!window.confirm('Take the payment QR off future bills?')) return;
+    setBusy('qr');
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/pay-qr`, {
+        method: 'DELETE',
+        headers: { 'x-quickal-panel-token': token },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not remove this QR.');
+      setDefaultQr('');
+      setSaved('QR removed. Bills will print the phone number instead.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not remove this QR.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function create(event) {
+    event.preventDefault();
+    if (!canCreate) return;
+    setBusy('create');
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/bills`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quickal-panel-token': token },
+        body: JSON.stringify({
+          userId: user.id,
+          planId,
+          dueOn,
+          notes: notes.trim(),
+          qrImage: billQr ? billQr.image : '',
+          items: lines.map((line) => ({
+            title: line.title.trim(),
+            description: line.description.trim(),
+            kind: line.kind,
+            amountPkr: amountOf(line.amount),
+            isPlan: Boolean(line.isPlan),
+          })),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not write this bill.');
+      setBills((current) => [payload.bill, ...current]);
+      setLines([{ ...EMPTY_LINE }]);
+      setPlanId('');
+      setDueOn('');
+      setNotes('');
+      setBillQr(null);
+      setSaved(
+        `Bill ${payload.bill.billNo} written — ${formatPkr(payload.bill.totalPkr)}.` +
+          (payload.qrError ? ` The QR did not save: ${payload.qrError}` : '') +
+          ' Check the PDF, then send it.',
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not write this bill.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function openPdf(bill) {
+    // Opened now, while the click still counts as the owner's, so the browser
+    // does not treat it as a pop-up.
+    const tab = window.open('', '_blank');
+    setBusy(`pdf:${bill.id}`);
+    setError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/bills/${bill.id}/pdf`, {
+        headers: { 'x-quickal-panel-token': token },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Could not open the bill.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      if (tab) {
+        tab.location = url;
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Quick-AL-Bill-${bill.billNo}.pdf`;
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (caught) {
+      if (tab) tab.close();
+      setError(caught instanceof Error ? caught.message : 'Could not open the bill.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function send(bill) {
+    const again = bill.emailCount > 0;
+    if (
+      !window.confirm(
+        `${again ? 'Send bill again' : 'Email bill'} ${bill.billNo} to ${user.email}?\n\n` +
+          `${formatPkr(bill.totalPkr)} · the PDF goes with it.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(`send:${bill.id}`);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/bills/${bill.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quickal-panel-token': token },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not send the bill.');
+      setBills((current) => current.map((item) => (item.id === bill.id ? payload.bill : item)));
+      setSaved(`Bill ${bill.billNo} emailed to ${payload.sentTo}.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not send the bill.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  function startPaying(bill) {
+    setPaying(paying === bill.id ? null : bill.id);
+    setPayOn(pakistanToday());
+    setPayMethod('bank_transfer');
+    setPayReference('');
+    setPayStart('after_current');
+    setError('');
+    setSaved('');
+  }
+
+  async function confirmPaid(bill) {
+    setBusy(`paid:${bill.id}`);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/bills/${bill.id}/paid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quickal-panel-token': token },
+        body: JSON.stringify({
+          paidOn: payOn,
+          paymentMethod: payMethod,
+          paymentReference: payReference.trim(),
+          start: liveUntil ? payStart : 'today',
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not mark this bill paid.');
+      setBills((current) =>
+        current.map((item) => (item.id === bill.id ? payload.bill : item)),
+      );
+      setPaying(null);
+      setSaved(
+        `Bill ${bill.billNo} marked paid.` +
+          (payload.receipt
+            ? ` Receipt ${payload.receipt.receiptNo} written — ${payload.plan.title} until ${planDate(payload.receipt.periodEndsAt)}.`
+            : '') +
+          (payload.switchedOn ? ' The app is switched back on for them.' : ''),
+      );
+      if (onChanged) onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not mark this bill paid.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function remove(bill) {
+    if (
+      !window.confirm(
+        `Delete bill ${bill.billNo}?\n\nIt is unpaid and was never sent, so nobody has it yet.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(`delete:${bill.id}`);
+    setError('');
+    setSaved('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/panel/bills/${bill.id}`, {
+        method: 'DELETE',
+        headers: { 'x-quickal-panel-token': token },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not delete the bill.');
+      setBills((current) => current.filter((item) => item.id !== bill.id));
+      setSaved(`Bill ${bill.billNo} deleted.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not delete the bill.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <div className="ua-pay ua-bills">
+      <div className="ua-pay-head">
+        <div>
+          <h4>Bills</h4>
+          <p className="ua-plan-state">
+            {bills.length > 0
+              ? `${bills.length} bill${bills.length === 1 ? '' : 's'} · ${formatPkr(paidTotal)} paid` +
+                (unpaid.length > 0 ? ` · ${formatPkr(unpaidTotal)} still owed` : '')
+              : 'No bills yet. Write one, send it, and mark it paid when the money arrives.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="ua-qr">
+        <div className="ua-qr-shot">
+          {defaultQr ? (
+            <img src={defaultQr} alt="Payment QR printed on bills" />
+          ) : (
+            <span className="ua-qr-empty">No QR</span>
+          )}
+        </div>
+        <div className="ua-qr-body">
+          <span className="ua-pay-label">Payment QR on every bill</span>
+          <p className="ua-note ua-note-quiet">
+            Make it in your banking app (Raast) and upload the picture. A bill can
+            also carry its own, for a code made for that amount. PNG or JPG.
+          </p>
+          <div className="ua-receipt-actions">
+            <label className="ua-plan-btn ua-file">
+              {busy === 'qr' ? 'Saving…' : defaultQr ? 'Replace QR' : 'Upload QR'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                disabled={Boolean(busy)}
+                onChange={(event) => {
+                  const file = event.target.files && event.target.files[0];
+                  event.target.value = '';
+                  if (file) uploadDefaultQr(file);
+                }}
+              />
+            </label>
+            {defaultQr && (
+              <button
+                type="button"
+                className="ua-plan-btn is-remove"
+                disabled={Boolean(busy)}
+                onClick={removeDefaultQr}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <form className="ua-pay-form" onSubmit={create}>
+        <div className="ua-pay-field ua-pay-plans">
+          <span className="ua-pay-label">Plan on this bill (optional)</span>
+          <div className="ua-pay-choice" role="radiogroup" aria-label="Plan on this bill">
+            {plans.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                role="radio"
+                aria-checked={planId === candidate.id}
+                className={planId === candidate.id ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                disabled={Boolean(busy)}
+                onClick={() => choosePlan(candidate)}
+              >
+                {candidate.title}
+              </button>
+            ))}
+          </div>
+          <span className="ua-pay-sub">
+            {plan
+              ? 'Marking this bill paid starts this plan and writes their receipt.'
+              : 'A bill with no plan is just a charge — nothing starts when it is paid.'}
+          </span>
+        </div>
+
+        {lines.map((line, index) => (
+          <div className="ua-bill-line ua-pay-wide" key={index}>
+            <div className="ua-bill-line-top">
+              <input
+                className="ua-pay-input"
+                maxLength={120}
+                placeholder="What is being charged, e.g. Measure Every Side"
+                value={line.title}
+                disabled={Boolean(busy)}
+                onChange={(event) => setLine(index, { title: event.target.value })}
+              />
+              <input
+                className="ua-pay-input ua-pay-amount ua-bill-amount"
+                inputMode="numeric"
+                placeholder="Amount"
+                value={line.amount}
+                disabled={Boolean(busy)}
+                onChange={(event) =>
+                  setLine(index, { amount: event.target.value.replace(/[^\d]/g, '').slice(0, 9) })
+                }
+              />
+              {lines.length > 1 && (
+                <button
+                  type="button"
+                  className="ua-plan-btn is-remove ua-bill-drop"
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    if (line.isPlan) setPlanId('');
+                    setLines((current) => current.filter((item, at) => at !== index));
+                  }}
+                  aria-label="Remove this line"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <input
+              className="ua-pay-input ua-bill-desc"
+              maxLength={400}
+              placeholder="A line about it, in the shop's words (optional)"
+              value={line.description}
+              disabled={Boolean(busy)}
+              onChange={(event) => setLine(index, { description: event.target.value })}
+            />
+            <div className="ua-bill-line-foot">
+              <div className="ua-pay-choice">
+                {ITEM_KINDS.map((kind) => (
+                  <button
+                    key={kind.id}
+                    type="button"
+                    className={line.kind === kind.id ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                    disabled={Boolean(busy)}
+                    onClick={() => setLine(index, { kind: kind.id })}
+                  >
+                    {kind.label}
+                  </button>
+                ))}
+              </div>
+              {line.isPlan && <span className="ua-bill-tag">Plan line</span>}
+            </div>
+          </div>
+        ))}
+
+        <div className="ua-pay-field ua-pay-wide">
+          <button
+            type="button"
+            className="ua-plan-btn"
+            disabled={Boolean(busy) || lines.length >= 12}
+            onClick={() => setLines((current) => [...current, { ...EMPTY_LINE }])}
+          >
+            + Add a line
+          </button>
+        </div>
+
+        <label className="ua-pay-field">
+          <span className="ua-pay-label">Pay by (optional)</span>
+          <input
+            className="ua-pay-input"
+            type="date"
+            value={dueOn}
+            disabled={Boolean(busy)}
+            onChange={(event) => setDueOn(event.target.value)}
+          />
+        </label>
+
+        <div className="ua-pay-field">
+          <span className="ua-pay-label">QR for this bill (optional)</span>
+          <div className="ua-receipt-actions">
+            <label className="ua-plan-btn ua-file">
+              {billQr ? billQr.name : 'Choose picture'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                disabled={Boolean(busy)}
+                onChange={async (event) => {
+                  const file = event.target.files && event.target.files[0];
+                  event.target.value = '';
+                  if (!file) return;
+                  try {
+                    setBillQr({ name: file.name, image: await readImageFile(file) });
+                  } catch (caught) {
+                    setError(caught instanceof Error ? caught.message : 'Could not read that picture.');
+                  }
+                }}
+              />
+            </label>
+            {billQr && (
+              <button
+                type="button"
+                className="ua-plan-btn is-remove"
+                disabled={Boolean(busy)}
+                onClick={() => setBillQr(null)}
+              >
+                Use the default
+              </button>
+            )}
+          </div>
+        </div>
+
+        <label className="ua-pay-field ua-pay-wide">
+          <span className="ua-pay-label">Note on the bill (optional)</span>
+          <input
+            className="ua-pay-input"
+            maxLength={500}
+            placeholder="Anything the shop should read with it"
+            value={notes}
+            disabled={Boolean(busy)}
+            onChange={(event) => setNotes(event.target.value)}
+          />
+        </label>
+
+        <div className="ua-pay-foot ua-pay-wide">
+          <span className="ua-pay-summary">
+            {total > 0 ? `Total ${formatPkr(total)}` : 'Write what is being charged.'}
+          </span>
+          <button type="submit" className="ua-pay-make" disabled={!canCreate}>
+            {busy === 'create' ? 'Writing…' : 'Write bill'}
+          </button>
+        </div>
+      </form>
+
+      {error && <p className="ua-note ua-note-error">{error}</p>}
+      {saved && <p className="ua-note ua-note-ok">{saved}</p>}
+
+      {loading && <p className="ua-note">Loading bills&hellip;</p>}
+      {listError && <p className="ua-note ua-note-error">{listError}</p>}
+      {!loading && bills.length > 0 && (
+        <ul className="ua-receipts">
+          {bills.map((bill) => (
+            <li key={bill.id} className="ua-receipt">
+              <div className="ua-receipt-main">
+                <strong className="ua-receipt-no">
+                  {bill.billNo}
+                  <span className={bill.status === 'paid' ? 'ua-bill-chip is-paid' : 'ua-bill-chip'}>
+                    {bill.status === 'paid' ? 'PAID' : 'UNPAID'}
+                  </span>
+                </strong>
+                <span className="ua-receipt-amount">{formatPkr(bill.totalPkr)}</span>
+                <span className="ua-receipt-meta">
+                  {calendarDate(bill.issuedOn)} ·{' '}
+                  {bill.items.map((item) => item.title).join(', ')}
+                  {bill.dueOn && bill.status === 'unpaid' ? ` · pay by ${calendarDate(bill.dueOn)}` : ''}
+                </span>
+                {bill.status === 'paid' && (
+                  <span className="ua-receipt-sent">
+                    Paid {calendarDate(bill.paidOn)} · {bill.paymentMethodLabel}
+                    {bill.paymentReference ? ` · ${bill.paymentReference}` : ''}
+                  </span>
+                )}
+                <span className={bill.emailCount > 0 ? 'ua-receipt-sent' : 'ua-receipt-unsent'}>
+                  {bill.emailCount > 0
+                    ? `Sent to ${bill.emailedTo} · ${sentAt(bill.emailedAt)}` +
+                      (bill.emailCount > 1 ? ` · ${bill.emailCount} times` : '')
+                    : 'Not sent yet'}
+                </span>
+              </div>
+              <div className="ua-receipt-actions">
+                <button
+                  type="button"
+                  className="ua-plan-btn"
+                  disabled={Boolean(busy)}
+                  onClick={() => openPdf(bill)}
+                >
+                  {busy === `pdf:${bill.id}` ? 'Opening…' : 'View PDF'}
+                </button>
+                <button
+                  type="button"
+                  className="ua-plan-btn is-send"
+                  disabled={Boolean(busy)}
+                  onClick={() => send(bill)}
+                >
+                  {busy === `send:${bill.id}`
+                    ? 'Sending…'
+                    : bill.emailCount > 0
+                      ? 'Send again'
+                      : 'Send bill'}
+                </button>
+                {bill.status === 'unpaid' && (
+                  <button
+                    type="button"
+                    className="ua-plan-btn is-paid"
+                    disabled={Boolean(busy)}
+                    onClick={() => startPaying(bill)}
+                  >
+                    {paying === bill.id ? 'Cancel' : 'Mark paid'}
+                  </button>
+                )}
+                {bill.status === 'unpaid' && bill.emailCount === 0 && (
+                  <button
+                    type="button"
+                    className="ua-plan-btn is-remove"
+                    disabled={Boolean(busy)}
+                    onClick={() => remove(bill)}
+                  >
+                    {busy === `delete:${bill.id}` ? 'Deleting…' : 'Delete'}
+                  </button>
+                )}
+              </div>
+
+              {paying === bill.id && (
+                <div className="ua-bill-paid-form">
+                  <p className="ua-note ua-note-quiet">
+                    Only once you have seen the money in your own bank. A screenshot
+                    is not proof.
+                  </p>
+                  <div className="ua-pay-form">
+                    <label className="ua-pay-field">
+                      <span className="ua-pay-label">Paid on</span>
+                      <input
+                        className="ua-pay-input"
+                        type="date"
+                        max={pakistanToday()}
+                        value={payOn}
+                        disabled={Boolean(busy)}
+                        onChange={(event) => setPayOn(event.target.value)}
+                      />
+                    </label>
+                    <label className="ua-pay-field">
+                      <span className="ua-pay-label">Paid by</span>
+                      <select
+                        className="ua-pay-input"
+                        value={payMethod}
+                        disabled={Boolean(busy)}
+                        onChange={(event) => setPayMethod(event.target.value)}
+                      >
+                        {PAYMENT_METHODS.map((option) => (
+                          <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="ua-pay-field ua-pay-wide">
+                      <span className="ua-pay-label">Transaction ID / reference (optional)</span>
+                      <input
+                        className="ua-pay-input"
+                        maxLength={80}
+                        placeholder="From the bank or wallet message"
+                        value={payReference}
+                        disabled={Boolean(busy)}
+                        onChange={(event) => setPayReference(event.target.value)}
+                      />
+                    </label>
+                    {bill.planId && liveUntil && (
+                      <div className="ua-pay-field ua-pay-wide">
+                        <span className="ua-pay-label">
+                          They are already on a plan until {planDate(liveUntil)}
+                        </span>
+                        <div className="ua-pay-choice">
+                          <button
+                            type="button"
+                            className={payStart === 'after_current' ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                            disabled={Boolean(busy)}
+                            onClick={() => setPayStart('after_current')}
+                          >
+                            Add after it ends
+                          </button>
+                          <button
+                            type="button"
+                            className={payStart === 'today' ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                            disabled={Boolean(busy)}
+                            onClick={() => setPayStart('today')}
+                          >
+                            Start today, replacing it
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="ua-pay-foot ua-pay-wide">
+                      <span className="ua-pay-summary">
+                        {bill.planId
+                          ? `${formatPkr(bill.totalPkr)} · starts ${bill.planTitle} and writes their receipt`
+                          : `${formatPkr(bill.totalPkr)} · recorded against this bill`}
+                      </span>
+                      <button
+                        type="button"
+                        className="ua-pay-make"
+                        disabled={Boolean(busy) || !payOn}
+                        onClick={() => confirmPaid(bill)}
+                      >
+                        {busy === `paid:${bill.id}` ? 'Saving…' : 'Confirm paid'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /// Recording what a shop paid, and the receipt they get for it.
 ///
 /// One step: the plan they paid for starts, the app switches back on, and a
@@ -847,6 +1605,13 @@ export function UserActivityPanel({ user, apiBaseUrl, token, onUserChanged }) {
   return (
     <div className="ua-panel">
       <PlanControl
+        user={user}
+        plans={plans}
+        apiBaseUrl={apiBaseUrl}
+        token={token}
+        onChanged={onUserChanged}
+      />
+      <BillsCard
         user={user}
         plans={plans}
         apiBaseUrl={apiBaseUrl}

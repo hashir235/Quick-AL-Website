@@ -2160,14 +2160,14 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 
 /* Putting a shop on a plan, from their own panel. */
 .ua-plan {
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid #dbe3ee;
   border-radius: 14px;
   padding: 16px 18px 14px;
   margin-bottom: 14px;
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
 }
-.ua-plan-head h4 { margin: 0 0 2px; font-size: 0.95rem; }
-.ua-plan-state { margin: 0 0 12px; font-size: 0.78rem; opacity: 0.7; }
+.ua-plan-head h4 { margin: 0 0 2px; font-size: 0.95rem; color: #0a2540; }
+.ua-plan-state { margin: 0 0 12px; font-size: 0.78rem; color: #5b6678; }
 .ua-plan-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2175,29 +2175,29 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 }
 .ua-plan-btn {
   border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f1b2d;
   font-size: 0.82rem;
   font-weight: 700;
   padding: 8px 14px;
   cursor: pointer;
 }
-.ua-plan-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.ua-plan-btn:hover:not(:disabled) { background: #f1f5f9; }
 .ua-plan-btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .ua-plan-btn.is-remove {
-  border-color: rgba(255, 139, 107, 0.45);
-  color: #ff8b6b;
+  border-color: #fdba74;
+  color: #c2410c;
 }
 .ua-plan-hint {
   margin: 10px 0 0;
   font-size: 0.74rem;
-  opacity: 0.55;
+  color: #5b6678;
   max-width: 68ch;
 }
 .ua-plan-btn.is-send {
-  border-color: rgba(76, 141, 255, 0.5);
-  color: #8fb6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
 }
 
 /* Recording what a shop paid, and the receipts for it. A solid card rather
@@ -2299,6 +2299,94 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 .ua-pay-make:hover:not(:disabled) { background: #4c8dff; }
 .ua-pay-make:disabled { cursor: not-allowed; opacity: 0.4; }
 
+/* Bills: the same white card as the money box below it, because they are two
+   halves of one job -- what a shop owes, and what they have paid. */
+.ua-bills .ua-pay-head h4 { color: #0a2540; }
+.ua-bill-line {
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfdff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ua-bill-line-top { display: flex; gap: 8px; align-items: flex-start; }
+.ua-bill-line-top > .ua-pay-input:first-child { flex: 1 1 auto; min-width: 0; }
+.ua-bill-amount { flex: 0 0 130px; }
+.ua-bill-drop { flex: 0 0 auto; padding: 8px 12px; line-height: 1; }
+.ua-bill-desc { font-size: 0.85rem; }
+.ua-bill-line-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ua-bill-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1d4ed8;
+  background: #e8f0ff;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.ua-bill-chip {
+  margin-left: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid #fdba74;
+  color: #b45309;
+  background: #fff7ea;
+}
+.ua-bill-chip.is-paid {
+  border-color: #86efac;
+  color: #15803d;
+  background: #effaf1;
+}
+.ua-plan-btn.is-paid { border-color: #86efac; color: #15803d; }
+.ua-bill-paid-form {
+  flex-basis: 100%;
+  margin-top: 10px;
+  border-top: 1px dashed #dfe7f2;
+  padding-top: 10px;
+}
+
+/* The QR that goes on the bills, with what it is next to it. */
+.ua-qr {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #fbfdff;
+}
+.ua-qr-shot {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  border-radius: 10px;
+  border: 1px solid #dfe7f2;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.ua-qr-shot img { width: 100%; height: 100%; object-fit: contain; }
+.ua-qr-empty { font-size: 0.72rem; color: #94a3b8; font-weight: 700; }
+.ua-qr-body { min-width: 0; flex: 1; }
+.ua-qr-body .ua-note { margin: 4px 0 8px; }
+/* A file picker that reads as one of the buttons beside it. */
+.ua-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.ua-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .ua-receipts {
   list-style: none;
   margin: 14px 0 0;
@@ -2341,11 +2429,19 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
 .dash-td-paid { white-space: nowrap; }
 .dash-paid-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
 .dash-paid-count { margin-left: 6px; font-size: 0.74rem; opacity: 0.6; font-weight: 700; }
-.dash-detail-row > td { padding: 0 !important; background: rgba(10, 20, 38, 0.5); }
+.dash-detail-row > td { padding: 0 !important; background: #f4f7fb; }
 
+/* A shop's own record, opened under their row.
+   Light, while the table around it stays dark: this panel is read closely --
+   amounts, dates, a message being written to somebody -- and the dark theme
+   made it a grey-on-grey wall nobody could pick anything out of. The money
+   card was already white for the same reason; now the whole panel matches it,
+   and the row above stays dark so you can still see where you are. */
 .ua-panel {
   padding: 22px 24px 26px;
-  border-top: 2px solid rgba(76, 141, 255, 0.45);
+  border-top: 2px solid #3882e4;
+  background: #f4f7fb;
+  color: #0f1b2d;
   animation: ua-open 0.22s ease;
 }
 @keyframes ua-open {
@@ -2359,14 +2455,14 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   gap: 14px 20px;
   padding-bottom: 20px;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #dbe3ee;
 }
 .ua-identity-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ua-identity-label {
   font-size: 0.68rem;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  opacity: 0.5;
+  color: #5b6678;
   font-weight: 700;
 }
 .ua-identity-value { font-weight: 600; overflow-wrap: anywhere; }
@@ -2383,15 +2479,15 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   gap: 2px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
 }
 .ua-stat-value { font-size: 1.7rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.ua-stat-up { color: #3ddc97; }
-.ua-stat-down { color: #ff8b6b; }
-.ua-stat-flat { opacity: 0.65; }
-.ua-stat-label { font-size: 0.78rem; opacity: 0.72; font-weight: 600; }
-.ua-stat-sub { font-size: 0.7rem; opacity: 0.45; }
+.ua-stat-up { color: #15803d; }
+.ua-stat-down { color: #c2410c; }
+.ua-stat-flat { color: #5b6678; }
+.ua-stat-label { font-size: 0.78rem; color: #4a5568; font-weight: 600; }
+.ua-stat-sub { font-size: 0.7rem; color: #6b7280; }
 
 .ua-chart-block { margin-top: 22px; }
 .ua-chart-head {
@@ -2403,14 +2499,14 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   margin-bottom: 10px;
 }
 .ua-chart-head h4 { margin: 0; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.01em; }
-.ua-legend { display: flex; gap: 16px; font-size: 0.76rem; opacity: 0.75; flex-wrap: wrap; }
+.ua-legend { display: flex; gap: 16px; font-size: 0.76rem; color: #4a5568; flex-wrap: wrap; }
 .ua-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .ua-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 .ua-chart-wrap { position: relative; }
 .ua-chart { width: 100%; height: auto; display: block; overflow: visible; }
-.ua-axis { fill: rgba(255, 255, 255, 0.55); font-size: 11px; font-weight: 600; }
-.ua-bar-total { fill: #fff; font-size: 12px; font-weight: 800; transition: opacity 0.12s ease; }
+.ua-axis { fill: #5b6678; font-size: 11px; font-weight: 600; }
+.ua-bar-total { fill: #0f1b2d; font-size: 12px; font-weight: 800; transition: opacity 0.12s ease; }
 
 .ua-tooltip {
   position: absolute;
@@ -2423,6 +2519,7 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   border-radius: 10px;
   background: rgba(6, 14, 28, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   font-size: 0.76rem;
   pointer-events: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -2442,28 +2539,28 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   justify-content: center;
   font-size: 0.8rem;
   font-weight: 800;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid #dbe3ee;
 }
-.ua-worked-cell small { font-size: 0.66rem; opacity: 0.5; font-weight: 600; }
+.ua-worked-cell small { font-size: 0.66rem; color: #6b7280; font-weight: 600; }
 
-.ua-note { font-size: 0.8rem; opacity: 0.6; margin: 6px 0 12px; }
+.ua-note { font-size: 0.8rem; color: #4a5568; margin: 6px 0 12px; }
 .ua-note-quiet { margin-top: 0; max-width: 62ch; }
-.ua-note-error { color: #ff8b6b; opacity: 1; }
-.ua-note-ok { color: #6bd39a; opacity: 1; }
+.ua-note-error { color: #c2410c; font-weight: 600; }
+.ua-note-ok { color: #15803d; font-weight: 600; }
 
 /* Switching one shop off. Sits at the top of their panel, and turns amber
    when it is off -- somebody scrolling the list of open panels should be able
    to see which account is stopped without reading a word. */
 .ua-access {
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid #dbe3ee;
   border-radius: 14px;
   padding: 16px 18px 14px;
   margin-bottom: 18px;
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
 }
 .ua-access.is-blocked {
-  border-color: rgba(255, 176, 76, 0.45);
-  background: rgba(255, 176, 76, 0.07);
+  border-color: #f59e0b;
+  background: #fff7ea;
 }
 .ua-access-head {
   display: flex;
@@ -2472,23 +2569,23 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   gap: 16px;
   margin-bottom: 12px;
 }
-.ua-access-head h4 { margin: 0 0 2px; font-size: 0.95rem; }
-.ua-access-state { margin: 0; font-size: 0.78rem; opacity: 0.65; }
-.ua-access.is-blocked .ua-access-state { color: #ffb04c; opacity: 1; }
+.ua-access-head h4 { margin: 0 0 2px; font-size: 0.95rem; color: #0a2540; }
+.ua-access-state { margin: 0; font-size: 0.78rem; color: #5b6678; }
+.ua-access.is-blocked .ua-access-state { color: #b45309; font-weight: 600; }
 
 .ua-switch {
   flex: 0 0 auto;
   width: 54px;
   height: 30px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid #cbd5e1;
   padding: 3px;
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease;
   display: flex;
 }
 .ua-switch.is-on { background: #2f8f5b; justify-content: flex-end; }
-.ua-switch.is-off { background: rgba(255, 255, 255, 0.14); justify-content: flex-start; }
+.ua-switch.is-off { background: #cbd5e1; justify-content: flex-start; }
 .ua-switch:disabled { cursor: not-allowed; opacity: 0.45; }
 .ua-switch-knob {
   width: 22px;
@@ -2503,16 +2600,17 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   font-size: 0.74rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  opacity: 0.6;
+  color: #5b6678;
+  font-weight: 700;
   margin-bottom: 6px;
 }
 .ua-access-message {
   width: 100%;
   resize: vertical;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.22);
-  color: inherit;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f1b2d;
   font: inherit;
   font-size: 0.85rem;
   line-height: 1.5;
@@ -2526,12 +2624,12 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   gap: 12px;
   margin-top: 8px;
 }
-.ua-access-hint { font-size: 0.74rem; opacity: 0.55; }
+.ua-access-hint { font-size: 0.74rem; color: #5b6678; }
 .ua-access-update {
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f1b2d;
   font-size: 0.78rem;
   font-weight: 700;
   padding: 6px 12px;
@@ -2562,8 +2660,8 @@ h3 { margin-bottom: 9px; font-size: 1.06rem; line-height: 1.25; }
   align-items: flex-end;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
+  background: #e6edf7;
 }
 .ua-views-bar { width: 100%; border-radius: 6px 6px 0 0; transition: height 160ms ease; }
-.ua-views-cell small { font-size: 0.62rem; opacity: 0.55; }
+.ua-views-cell small { font-size: 0.62rem; color: #6b7280; }
 .dash-td-views { font-weight: 700; }
