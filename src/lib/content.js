@@ -66,20 +66,20 @@ export const features = [
 export const plans = [
   {
     name: '3 Months',
-    price: 'Rs 2,500',
+    price: 'Rs 1,800',
     note: 'Good for trying Quick AL through direct website access.',
   },
   {
     name: '6 Months',
-    price: 'Rs 4,500',
-    discount: 'Save Rs 500',
+    price: 'Rs 3,200',
+    discount: 'Save Rs 400',
     note: 'Balanced plan for regular estimation and reports.',
     highlighted: true,
   },
   {
     name: '1 Year',
-    price: 'Rs 8,000',
-    discount: 'Save Rs 2,000',
+    price: 'Rs 6,000',
+    discount: 'Save Rs 1,200',
     note: 'Best value for established aluminium and glass businesses.',
   },
 ];
