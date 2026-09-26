@@ -236,6 +236,14 @@ function addMonths(date, months) {
   return copy;
 }
 
+/// What the owner charges for a plan on a bill, by its length in months.
+///
+/// His own prices, and deliberately only here: the app's plan screen and
+/// online checkout keep reading the price list on the server, which he did
+/// not want changed. These only save typing the same amount into every
+/// bill -- the line can still be edited before the bill is written.
+const BILL_PLAN_PRICES = { 3: 2500, 6: 4500, 12: 8000 };
+
 const ITEM_KINDS = [
   { id: 'one_time', label: 'One-time' },
   { id: 'recurring', label: 'Renews' },
@@ -369,7 +377,7 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
         title: `Quick AL Subscription — ${candidate.title}`,
         description: `Full access to Quick AL for ${months} month${months === 1 ? '' : 's'}: estimation, fabrication, cutting lists, glass sheets and PDF reports.`,
         kind: 'recurring',
-        amount: String(candidate.pricePkr || ''),
+        amount: String(BILL_PLAN_PRICES[months] || candidate.pricePkr || ''),
         isPlan: true,
       };
       const rest = withoutPlan.filter((item) => item.title.trim() || amountOf(item.amount) > 0);
