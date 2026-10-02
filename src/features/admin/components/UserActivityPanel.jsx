@@ -251,6 +251,13 @@ const ITEM_KINDS = [
 
 const EMPTY_LINE = { title: '', description: '', kind: 'one_time', amount: '', isPlan: false };
 
+/// How a discount on a bill is given: rupees off, or a percentage of the
+/// lines. The server works the rupees out the same way.
+const DISCOUNT_TYPES = [
+  { id: 'amount', label: 'Rs' },
+  { id: 'percent', label: '%' },
+];
+
 /// A picture chosen from the owner's machine, as the data URL the server takes.
 function readImageFile(file) {
   return new Promise((resolve, reject) => {
@@ -284,6 +291,9 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
   const [planId, setPlanId] = React.useState('');
   const [dueOn, setDueOn] = React.useState('');
   const [notes, setNotes] = React.useState('');
+  const [discountType, setDiscountType] = React.useState('amount');
+  const [discountValue, setDiscountValue] = React.useState('');
+  const [discountNote, setDiscountNote] = React.useState('');
   const [billQr, setBillQr] = React.useState(null);
   const [paying, setPaying] = React.useState(null);
   const [payOn, setPayOn] = React.useState(pakistanToday());
@@ -300,6 +310,9 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
     setPlanId('');
     setDueOn('');
     setNotes('');
+    setDiscountType('amount');
+    setDiscountValue('');
+    setDiscountNote('');
     setBillQr(null);
     setPaying(null);
     setError('');
@@ -348,11 +361,35 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
       : null;
   const filled = lines.filter((line) => line.title.trim() && amountOf(line.amount) > 0);
   const planLine = lines.find((line) => line.isPlan);
+
+  // The discount in rupees, worked out as the server works it out: a
+  // percentage to two places of the lines' total, rounded to the rupee.
+  const discountNumber = Number(discountValue) || 0;
+  const discountPercent =
+    discountType === 'percent' ? Math.round(discountNumber * 100) / 100 : 0;
+  const discountPkr =
+    discountType === 'percent'
+      ? discountPercent > 0 && discountPercent < 100
+        ? Math.round((total * discountPercent) / 100)
+        : 0
+      : Math.round(discountNumber);
+  const planAmount = planLine ? amountOf(planLine.amount) : 0;
+  const discountProblem =
+    discountType === 'percent' && discountNumber >= 100
+      ? 'A discount has to be less than 100%.'
+      : discountPkr > 0 && discountPkr >= total
+        ? 'The discount cannot be the whole bill — something has to be left to pay.'
+        : planId && planLine && discountPkr > 0 && discountPkr >= planAmount
+          ? "On a bill with a plan the discount comes off the plan, so it has to be less than the plan's amount."
+          : '';
+  const due = total - discountPkr;
+
   const canCreate =
     filled.length === lines.length &&
     lines.length > 0 &&
     total > 0 &&
     (!planId || Boolean(planLine)) &&
+    !discountProblem &&
     !busy;
 
   function setLine(index, patch) {
@@ -443,6 +480,11 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
           planId,
           dueOn,
           notes: notes.trim(),
+          discount: {
+            type: discountType,
+            value: discountType === 'percent' ? discountPercent : discountPkr,
+            note: discountNote.trim(),
+          },
           qrImage: billQr ? billQr.image : '',
           items: lines.map((line) => ({
             title: line.title.trim(),
@@ -460,9 +502,15 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
       setPlanId('');
       setDueOn('');
       setNotes('');
+      setDiscountType('amount');
+      setDiscountValue('');
+      setDiscountNote('');
       setBillQr(null);
       setSaved(
-        `Bill ${payload.bill.billNo} written — ${formatPkr(payload.bill.totalPkr)}.` +
+        `Bill ${payload.bill.billNo} written — ${formatPkr(payload.bill.totalPkr)}` +
+          (payload.bill.discountPkr > 0
+            ? ` after a ${formatPkr(payload.bill.discountPkr)} discount.`
+            : '.') +
           (payload.qrError ? ` The QR did not save: ${payload.qrError}` : '') +
           ' Check the PDF, then send it.',
       );
@@ -764,6 +812,70 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
           </button>
         </div>
 
+        {/* A discount on this bill: rupees off, or a percentage of the
+            lines, with a reason if there is one. It is printed on the bill,
+            and on a bill with a plan it comes off the plan on their receipt;
+            the plan still renews at its full price. */}
+        <div className="ua-pay-field ua-pay-wide ua-bill-discount">
+          <span className="ua-pay-label">Discount (optional)</span>
+          <div className="ua-bill-line-top">
+            <div className="ua-pay-choice" role="radiogroup" aria-label="Discount in">
+              {DISCOUNT_TYPES.map((type) => (
+                <button
+                  key={type.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={discountType === type.id}
+                  className={discountType === type.id ? 'ua-pay-option is-on' : 'ua-pay-option'}
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    if (discountType === type.id) return;
+                    setDiscountType(type.id);
+                    setDiscountValue('');
+                  }}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+            <input
+              className="ua-pay-input ua-pay-amount ua-bill-amount"
+              inputMode={discountType === 'percent' ? 'decimal' : 'numeric'}
+              placeholder={discountType === 'percent' ? 'e.g. 10' : 'e.g. 500'}
+              value={discountValue}
+              disabled={Boolean(busy)}
+              onChange={(event) => {
+                const raw = event.target.value;
+                setDiscountValue(
+                  discountType === 'percent'
+                    ? raw.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 6)
+                    : raw.replace(/[^\d]/g, '').slice(0, 9),
+                );
+              }}
+            />
+          </div>
+          <input
+            className="ua-pay-input ua-bill-desc"
+            maxLength={80}
+            placeholder="Reason, printed beside it (optional) — e.g. Eid offer"
+            value={discountNote}
+            disabled={Boolean(busy)}
+            onChange={(event) => setDiscountNote(event.target.value)}
+          />
+          {discountProblem ? (
+            <span className="ua-note ua-note-error">{discountProblem}</span>
+          ) : (
+            <span className="ua-pay-sub">
+              {discountPkr > 0
+                ? `${formatPkr(discountPkr)} off the bill, printed on it.` +
+                  (planId
+                    ? ' On their receipt it comes off the plan; the plan still renews at its full price.'
+                    : '')
+                : 'Rupees off, or a percentage of the lines. Leave it empty for none.'}
+            </span>
+          )}
+        </div>
+
         <label className="ua-pay-field">
           <span className="ua-pay-label">Pay by (optional)</span>
           <input
@@ -823,7 +935,11 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
 
         <div className="ua-pay-foot ua-pay-wide">
           <span className="ua-pay-summary">
-            {total > 0 ? `Total ${formatPkr(total)}` : 'Write what is being charged.'}
+            {total <= 0
+              ? 'Write what is being charged.'
+              : discountPkr > 0 && !discountProblem
+                ? `Subtotal ${formatPkr(total)} · Discount –${formatPkr(discountPkr)} · Total ${formatPkr(due)}`
+                : `Total ${formatPkr(total)}`}
           </span>
           <button type="submit" className="ua-pay-make" disabled={!canCreate}>
             {busy === 'create' ? 'Writing…' : 'Write bill'}
@@ -848,6 +964,14 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
                   </span>
                 </strong>
                 <span className="ua-receipt-amount">{formatPkr(bill.totalPkr)}</span>
+                {bill.discountPkr > 0 && (
+                  <span className="ua-receipt-meta">
+                    After a {formatPkr(bill.discountPkr)} discount
+                    {bill.discountPercent ? ` (${bill.discountPercent}%)` : ''}
+                    {bill.discountNote ? ` · ${bill.discountNote}` : ''} on{' '}
+                    {formatPkr(bill.subtotalPkr)}
+                  </span>
+                )}
                 <span className="ua-receipt-meta">
                   {calendarDate(bill.issuedOn)} ·{' '}
                   {bill.items.map((item) => item.title).join(', ')}
@@ -1350,6 +1474,12 @@ function PaymentReceipts({ user, plans, apiBaseUrl, token, onChanged }) {
               <div className="ua-receipt-main">
                 <strong className="ua-receipt-no">{receipt.receiptNo}</strong>
                 <span className="ua-receipt-amount">{formatPkr(receipt.amountPkr)}</span>
+                {receipt.discountPkr > 0 && (
+                  <span className="ua-receipt-meta">
+                    After a {formatPkr(receipt.discountPkr)} discount
+                    {receipt.discountNote ? ` · ${receipt.discountNote}` : ''}
+                  </span>
+                )}
                 <span className="ua-receipt-meta">
                   {receipt.planTitle} · paid {calendarDate(receipt.paidOn)} ·{' '}
                   {receipt.paymentMethodLabel}
