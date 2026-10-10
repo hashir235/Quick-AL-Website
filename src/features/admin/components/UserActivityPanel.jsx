@@ -10,6 +10,7 @@ import { ActivityChart } from './ActivityChart.jsx';
 /// anyone else, because the question this answers is "what is this shop
 /// doing?" and a comparison would only blur it.
 const PLAN_FALLBACK = [
+  { id: 'monthly', title: '1 Month', durationMonths: 1 },
   { id: 'quarterly', title: '3 Months', durationMonths: 3 },
   { id: 'halfyearly', title: '6 Months', durationMonths: 6 },
   { id: 'yearly', title: '1 Year', durationMonths: 12 },
@@ -242,6 +243,8 @@ function addMonths(date, months) {
 /// online checkout keep reading the price list on the server, which he did
 /// not want changed. These only save typing the same amount into every
 /// bill -- the line can still be edited before the bill is written.
+///
+/// One month has no price on purpose: he types it on each bill (Oct 2026).
 const BILL_PLAN_PRICES = { 3: 2500, 6: 4500, 12: 8000 };
 
 const ITEM_KINDS = [
@@ -414,7 +417,7 @@ function BillsCard({ user, plans, apiBaseUrl, token, onChanged }) {
         title: `Quick AL Subscription — ${candidate.title}`,
         description: `Full access to Quick AL for ${months} month${months === 1 ? '' : 's'}: estimation, fabrication, cutting lists, glass sheets and PDF reports.`,
         kind: 'recurring',
-        amount: String(BILL_PLAN_PRICES[months] || candidate.pricePkr || ''),
+        amount: BILL_PLAN_PRICES[months] ? String(BILL_PLAN_PRICES[months]) : '',
         isPlan: true,
       };
       const rest = withoutPlan.filter((item) => item.title.trim() || amountOf(item.amount) > 0);
