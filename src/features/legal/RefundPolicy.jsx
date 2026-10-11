@@ -12,10 +12,20 @@ export function RefundPolicy() {
       title="Refund Policy"
       intro="Clear and simple rules for Quick AL subscription payments."
     >
+      <p>
+        The price of a plan is agreed with each workshop, and is the amount written on the bill we
+        send you.
+      </p>
       <h2>All payments are final</h2>
       <p>
         Quick AL subscription payments are final and non-refundable. When a subscription is
         activated, the service is considered delivered for the paid period.
+      </p>
+      <h2>Extra features made at your request</h2>
+      <p>
+        When you ask us to add something for your own workshop, its price is agreed with you
+        before the work starts. That charge is not refundable once the agreed work has been
+        delivered. If we cannot deliver it, we refund what you paid for it.
       </p>
       <h2>The one exception</h2>
       <p>

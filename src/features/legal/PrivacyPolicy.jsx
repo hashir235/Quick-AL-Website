@@ -27,7 +27,8 @@ export function PrivacyPolicy() {
       <ul>
         <li>Account information used for login and support.</li>
         <li>Project, estimate, material, cutting report, invoice, and PDF related app data.</li>
-        <li>Subscription status handled through Google Play Billing for Play Store installs, or direct account support for website installs.</li>
+        <li>Workshop settings, such as rate lists, cutting margins, and any cutting formulas you change.</li>
+        <li>Subscription status handled through Google Play Billing for Play Store installs, or the bills and receipts for plans paid directly to us.</li>
         <li>Technical information needed to keep the service reliable and secure.</li>
       </ul>
       <h2>How information is used</h2>
